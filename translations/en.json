@@ -1,0 +1,37 @@
+{
+  "config": {
+    "error": {
+      "connection_problem": "Could not retrieve Euribor rates",
+      "unknown": "Unknown error occured"
+    },
+    "abort": {
+      "already_configured": "This maturity is already configured"
+    },
+    "step": {
+      "user": {
+        "title": "Euribor rates",
+        "description": "Euribor rates settings",
+        "data": {
+          "days": "Days to retrieve",
+          "maturity": "Maturity"
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "invalid_auth": "Could not retrieve Euribor rates",
+      "unknown": "Unknown error occured"
+    },
+    "step": {
+      "init": {
+        "title": "Euribor rates",
+        "description": "Euribor rates settings",
+        "data": {
+          "days": "Days to retrieve",
+          "maturity": "Maturity"
+        }
+      }
+    }
+  }
+}
