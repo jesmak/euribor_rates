@@ -1,0 +1,37 @@
+{
+  "config": {
+    "error": {
+      "connection_problem": "Euriborkorkojen haku epäonnistui",
+      "unknown": "Tuntematon virhe"
+    },
+    "abort": {
+      "already_configured": "Valittu ajanjakso on jo käytössä"
+    },
+    "step": {
+      "user": {
+        "title": "Euriborkorot",
+        "description": "Euriborkorkoasetukset",
+        "data": {
+          "days": "Haettavien päivien määrä",
+          "maturity": "Ajanjakso"
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "invalid_auth": "Euriborkorkojen haku epäonnistui",
+      "unknown": "Tuntematon virhe"
+    },
+    "step": {
+      "init": {
+        "title": "Euriborkorot",
+        "description": "Euriborkorkoasetukset",
+        "data": {
+          "days": "Haettavien päivien määrä",
+          "maturity": "Ajanjakso"
+        }
+      }
+    }
+  }
+}
