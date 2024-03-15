@@ -3,7 +3,7 @@ from datetime import datetime
 import calendar
 import requests
 from requests import ConnectTimeout, RequestException
-from .const import API_BASE_URL, USER_AGENT
+from .const import API_BASE_URL, USER_AGENT, REFERER, SEC_FETCH_MODE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +32,9 @@ class EuriborSession:
             response = requests.get(
                 url=f"{API_BASE_URL}?minticks={min_ticks}&maxticks={max_ticks}&series[0]={self._series}",
                 headers={
-                    "User-Agent": USER_AGENT
+                    "User-Agent": USER_AGENT,
+                    "Sec-Fetch-Mode": SEC_FETCH_MODE,
+                    "Referer": REFERER
                 },
                 timeout=self._timeout,
             )
