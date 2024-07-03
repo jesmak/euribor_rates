@@ -5,11 +5,11 @@ from typing import Any, Callable, Dict, Optional
 from aiohttp import ClientError
 
 from homeassistant import config_entries, core
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import (
     ConfigType,
     DiscoveryInfoType,
-    HomeAssistantType,
 )
 
 from .session import EuriborSession
@@ -29,7 +29,7 @@ ATTR_LATEST_RATE = "latest_rate"
 
 
 async def async_setup_platform(
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         config: ConfigType,
         async_add_entities: Callable,
         discovery_info: Optional[DiscoveryInfoType] = None,
