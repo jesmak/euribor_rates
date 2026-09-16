@@ -1,154 +1,74 @@
-import logging
-from datetime import (timedelta, datetime)
-from typing import Any, Callable, Dict, Optional
+"""The sensor of one maturity: the newest rate, with the recent rates in its attributes."""
 
-from aiohttp import ClientError
+from __future__ import annotations
 
-from homeassistant import config_entries, core
+from typing import Any
+
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.typing import (
-    ConfigType,
-    DiscoveryInfoType,
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import (
+    ATTR_DATE,
+    ATTR_HISTORY,
+    ATTR_LATEST_DATE,
+    ATTR_LATEST_RATE,
+    ATTR_MATURITY,
+    ATTR_RATE,
+    ATTRIBUTION,
+    DOMAIN,
 )
-
-from .session import EuriborSession
-from .const import CONF_DAYS, CONF_MATURITY, DOMAIN, SERIES_WEEK, SERIES_YEAR, SERIES_MONTH, \
-    SERIES_HALF_YEAR, SERIES_QUARTER_YEAR
-
-_LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(hours=3)
-ATTRIBUTION = "Data provided by euribor-rates.eu"
-
-ATTR_HISTORY = "history"
-ATTR_DATE = "date"
-ATTR_RATE = "rate"
-ATTR_MATURITY = "maturity"
-ATTR_LATEST_DATE = "latest_date"
-ATTR_LATEST_RATE = "latest_rate"
+from .coordinator import EuriborConfigEntry, EuriborCoordinator
 
 
-async def async_setup_platform(
-        hass: HomeAssistant,
-        config: ConfigType,
-        async_add_entities: Callable,
-        discovery_info: Optional[DiscoveryInfoType] = None,
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: EuriborConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    if config[CONF_MATURITY] == "1 week":
-        series = SERIES_WEEK
-    elif config[CONF_MATURITY] == "1 month":
-        series = SERIES_MONTH
-    elif config[CONF_MATURITY] == "3 months":
-        series = SERIES_QUARTER_YEAR
-    elif config[CONF_MATURITY] == "6 months":
-        series = SERIES_HALF_YEAR
-    else:
-        series = SERIES_YEAR
-
-    session = EuriborSession(config[CONF_DAYS], series)
-    await hass.async_add_executor_job(session.call_api)
-    async_add_entities(
-        [EuriborSensor(
-            session,
-            config[CONF_MATURITY]
-        )],
-        update_before_add=True
-    )
+    async_add_entities([EuriborSensor(entry.runtime_data)])
 
 
-async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry, async_add_entities):
-    config = hass.data[DOMAIN][config_entry.entry_id]
-    if config_entry.options:
-        config.update(config_entry.options)
+class EuriborSensor(CoordinatorEntity[EuriborCoordinator], SensorEntity):
+    """The newest Euribor rate of one maturity."""
 
-    if config[CONF_MATURITY] == "1 week":
-        series = SERIES_WEEK
-    elif config[CONF_MATURITY] == "1 month":
-        series = SERIES_MONTH
-    elif config[CONF_MATURITY] == "3 months":
-        series = SERIES_QUARTER_YEAR
-    elif config[CONF_MATURITY] == "6 months":
-        series = SERIES_HALF_YEAR
-    else:
-        series = SERIES_YEAR
-
-    session = EuriborSession(config[CONF_DAYS], series)
-    await hass.async_add_executor_job(session.call_api)
-    async_add_entities(
-        [EuriborSensor(
-            session,
-            config[CONF_MATURITY]
-        )],
-        update_before_add=True
-    )
-
-
-class EuriborSensor(Entity):
+    # The history is as long as the days setting and would fill the database; the state is history enough.
+    _unrecorded_attributes = frozenset({ATTR_HISTORY})
     _attr_attribution = ATTRIBUTION
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_icon = "mdi:percent-circle-outline"
-    _attr_native_unit_of_measurement = "%"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 3
 
-    def __init__(
-            self,
-            session: EuriborSession,
-            maturity: str
-    ):
-        super().__init__()
-        self._session = session
-        self._maturity = maturity
-        self._state = None
-        self._available = True
-        self._attrs = {}
-
-    @property
-    def name(self) -> str:
-        return f"euribor_{self._maturity.replace(' ', '_')}"
+    def __init__(self, coordinator: EuriborCoordinator) -> None:
+        super().__init__(coordinator)
+        maturity = coordinator.maturity
+        # The same unique id as in earlier versions, so the entity keeps its id and history.
+        self._attr_unique_id = f"euribor_{maturity.replace(' ', '_')}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
+            name=f"Euribor {maturity}",
+            manufacturer="euribor-rates.eu",
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     @property
-    def unique_id(self) -> str:
-        return f"euribor_{self._maturity.replace(' ', '_')}"
+    def native_value(self) -> float | None:
+        newest = self.coordinator.data.newest if self.coordinator.data else None
+        return newest.rate if newest else None
 
     @property
-    def available(self) -> bool:
-        return self._available
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        return self._attrs
-
-    @property
-    def state(self) -> Optional[str]:
-        return self._state
-
-    @property
-    def unit_of_measurement(self) -> str:
-        return "%"
-
-    async def async_update(self):
-        try:
-            data = await self.hass.async_add_executor_job(self._session.call_api)
-            time_format = '%Y-%m-%d'
-
-            latest_date = None
-            latest_rate = None
-            rates = []
-
-            for entry in data:
-                date = datetime.utcfromtimestamp(entry[0] / 1000).strftime(time_format)
-                rate = entry[1]
-
-                if latest_date is None or date > latest_date:
-                    latest_date = date
-                    latest_rate = rate
-
-                rates.append({ATTR_DATE: date, ATTR_RATE: rate})
-
-            self._attrs[ATTR_HISTORY] = rates
-            self._attrs[ATTR_LATEST_DATE] = latest_date
-            self._attrs[ATTR_LATEST_RATE] = latest_rate
-            self._attrs[ATTR_MATURITY] = self._maturity
-            self._available = True
-            self._state = latest_rate
-
-        except ClientError:
-            self._available = False
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        newest = data.newest if data else None
+        return {
+            ATTR_HISTORY: [{ATTR_DATE: rate.date, ATTR_RATE: rate.rate} for rate in (data.rates if data else [])],
+            ATTR_LATEST_DATE: newest.date if newest else None,
+            ATTR_LATEST_RATE: newest.rate if newest else None,
+            ATTR_MATURITY: self.coordinator.maturity,
+        }

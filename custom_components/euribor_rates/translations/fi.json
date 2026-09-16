@@ -1,37 +1,35 @@
 {
   "config": {
-    "error": {
-      "connection_problem": "Euriborkorkojen haku epäonnistui",
-      "unknown": "Tuntematon virhe"
-    },
-    "abort": {
-      "already_configured": "Valittu ajanjakso on jo käytössä"
-    },
     "step": {
       "user": {
-        "title": "Euriborkorot",
-        "description": "Euriborkorkoasetukset",
+        "title": "Euribor-korot",
+        "description": "Seurattava korkojakso ja se, kuinka pitkälti historiaa säilytetään.",
         "data": {
-          "days": "Haettavien päivien määrä",
-          "maturity": "Ajanjakso"
+          "maturity": "Korkojakso",
+          "days": "Historian pituus päivinä"
+        },
+        "data_description": {
+          "maturity": "Korkojaksolle luodaan yksi sensori.",
+          "days": "Kuinka kauas taaksepäin sensorin attribuuttien korot ulottuvat."
+        }
+      },
+      "reconfigure": {
+        "title": "Euribor-korot",
+        "description": "Kuinka pitkälti korkojakson {maturity} historiaa säilytetään.",
+        "data": {
+          "days": "Historian pituus päivinä"
+        },
+        "data_description": {
+          "days": "Kuinka kauas taaksepäin sensorin attribuuttien korot ulottuvat."
         }
       }
-    }
-  },
-  "options": {
-    "error": {
-      "invalid_auth": "Euriborkorkojen haku epäonnistui",
-      "unknown": "Tuntematon virhe"
     },
-    "step": {
-      "init": {
-        "title": "Euriborkorot",
-        "description": "Euriborkorkoasetukset",
-        "data": {
-          "days": "Haettavien päivien määrä",
-          "maturity": "Ajanjakso"
-        }
-      }
+    "error": {
+      "cannot_connect": "Sivustoon euribor-rates.eu ei saatu yhteyttä. Yritä hetken kuluttua uudelleen."
+    },
+    "abort": {
+      "already_configured": "Tämä korkojakso on jo lisätty.",
+      "reconfigure_successful": "Tallennettu."
     }
   }
 }
