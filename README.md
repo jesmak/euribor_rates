@@ -65,8 +65,16 @@ something is wrong at the source.
 ## The history
 
 Every rate read is written into the statistics of the rate sensor itself, so the series is queried like any other
-sensor's statistics. Home Assistant's own statistics graph card draws it, and apexcharts-card reads it with
-`statistics`:
+sensor's statistics. Home Assistant's own statistics graph card draws it, and so does apexcharts-card.
+
+After the first read, each update asks only for the days since the newest rate already stored, and one more for
+safety. A weekend costs a three day request, a fortnight's outage heals itself on the first update afterwards, and an
+ordinary day asks for a single day. Nothing has to be reconfigured to recover from a gap.
+
+## Usage with apexcharts-card
+
+One use for this integration is a chart of the rates with [apexcharts-card](https://github.com/RomRider/apexcharts-card),
+which reads the sensor's statistics:
 
 ```yaml
 type: custom:apexcharts-card
@@ -143,10 +151,6 @@ yaxis:
             return value.toFixed(1) + ' %';
           }
 ```
-
-After the first read, each update asks only for the days since the newest rate already stored, and one more for
-safety. A weekend costs a three day request, a fortnight's outage heals itself on the first update afterwards, and an
-ordinary day asks for a single day. Nothing has to be reconfigured to recover from a gap.
 
 ## Upgrading from 1.x
 
