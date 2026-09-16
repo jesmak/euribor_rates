@@ -77,7 +77,7 @@ in the recorder, only the state. The sensor is unavailable while euribor-rates.e
 Nothing needs to be done: the maturity, the sensor, its history and the settings carry over, and entity IDs stay as
 they were. The number of days is now changed with **Reconfigure** instead of the options dialog.
 
-### Usage with apexcharts-card
+## Usage with apexcharts-card
 
 One use for this integration is a chart of the rates with
 [apexcharts-card](https://github.com/RomRider/apexcharts-card), drawn from the `history` attribute. Below is a
