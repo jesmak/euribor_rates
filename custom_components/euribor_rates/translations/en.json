@@ -3,33 +3,63 @@
     "step": {
       "user": {
         "title": "Euribor rates",
-        "description": "The maturity to follow, and how much of its history to keep.",
+        "description": "The maturity to follow, and how far back to read its history.",
         "data": {
           "maturity": "Maturity",
-          "days": "Days of history"
+          "days": "History to import, in days"
         },
         "data_description": {
           "maturity": "One sensor is created for the maturity.",
-          "days": "How far back the rates in the sensor's attributes reach."
-        }
-      },
-      "reconfigure": {
-        "title": "Euribor rates",
-        "description": "How much history the sensor of {maturity} keeps.",
-        "data": {
-          "days": "Days of history"
-        },
-        "data_description": {
-          "days": "How far back the rates in the sensor's attributes reach."
+          "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
         }
       }
     },
-    "error": {
-      "cannot_connect": "euribor-rates.eu couldn't be reached. Try again in a moment."
-    },
     "abort": {
-      "already_configured": "This maturity has already been added.",
-      "reconfigure_successful": "Saved."
+      "single_instance_allowed": "Euribor rates has already been added; add further maturities to it."
+    }
+  },
+  "config_subentries": {
+    "maturity": {
+      "initiate_flow": {
+        "user": "Add maturity"
+      },
+      "entry_type": "Maturity",
+      "step": {
+        "user": {
+          "title": "Maturity",
+          "description": "The maturity to follow, and how far back to read its history.",
+          "data": {
+            "maturity": "Maturity",
+            "days": "History to import, in days"
+          },
+          "data_description": {
+            "maturity": "One sensor is created for the maturity.",
+            "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
+          }
+        },
+        "reconfigure": {
+          "title": "Maturity",
+          "description": "How far back to read the history of {maturity}. Saving reads it again.",
+          "data": {
+            "days": "History to import, in days"
+          },
+          "data_description": {
+            "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "This maturity is already being followed.",
+        "all_configured": "Every maturity is already being followed.",
+        "reconfigure_successful": "Saved."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "published": {
+        "name": "Published"
+      }
     }
   }
 }

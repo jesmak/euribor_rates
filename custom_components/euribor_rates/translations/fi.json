@@ -3,33 +3,63 @@
     "step": {
       "user": {
         "title": "Euribor-korot",
-        "description": "Seurattava korkojakso ja se, kuinka pitkälti historiaa säilytetään.",
+        "description": "Seurattava korkojakso ja se, kuinka kaukaa historia luetaan.",
         "data": {
           "maturity": "Korkojakso",
-          "days": "Historian pituus päivinä"
+          "days": "Tuotavan historian pituus päivinä"
         },
         "data_description": {
           "maturity": "Korkojaksolle luodaan yksi sensori.",
-          "days": "Kuinka kauas taaksepäin sensorin attribuuttien korot ulottuvat."
-        }
-      },
-      "reconfigure": {
-        "title": "Euribor-korot",
-        "description": "Kuinka pitkälti korkojakson {maturity} historiaa säilytetään.",
-        "data": {
-          "days": "Historian pituus päivinä"
-        },
-        "data_description": {
-          "days": "Kuinka kauas taaksepäin sensorin attribuuttien korot ulottuvat."
+          "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
         }
       }
     },
-    "error": {
-      "cannot_connect": "Sivustoon euribor-rates.eu ei saatu yhteyttä. Yritä hetken kuluttua uudelleen."
-    },
     "abort": {
-      "already_configured": "Tämä korkojakso on jo lisätty.",
-      "reconfigure_successful": "Tallennettu."
+      "single_instance_allowed": "Euribor-korot on jo lisätty; lisää uudet korkojaksot siihen."
+    }
+  },
+  "config_subentries": {
+    "maturity": {
+      "initiate_flow": {
+        "user": "Lisää korkojakso"
+      },
+      "entry_type": "Korkojakso",
+      "step": {
+        "user": {
+          "title": "Korkojakso",
+          "description": "Seurattava korkojakso ja se, kuinka kaukaa historia luetaan.",
+          "data": {
+            "maturity": "Korkojakso",
+            "days": "Tuotavan historian pituus päivinä"
+          },
+          "data_description": {
+            "maturity": "Korkojaksolle luodaan yksi sensori.",
+            "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
+          }
+        },
+        "reconfigure": {
+          "title": "Korkojakso",
+          "description": "Kuinka kaukaa korkojakson {maturity} historia luetaan. Tallentaminen lukee sen uudelleen.",
+          "data": {
+            "days": "Tuotavan historian pituus päivinä"
+          },
+          "data_description": {
+            "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "Tätä korkojaksoa seurataan jo.",
+        "all_configured": "Kaikkia korkojaksoja seurataan jo.",
+        "reconfigure_successful": "Tallennettu."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "published": {
+        "name": "Julkaistu"
+      }
     }
   }
 }

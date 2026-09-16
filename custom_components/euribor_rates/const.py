@@ -31,18 +31,25 @@ MATURITIES: Final = list(SERIES_BY_MATURITY)
 # Config entry data. The keys are those of earlier versions, so existing entries keep working.
 CONF_MATURITY: Final = "maturity"
 CONF_DAYS: Final = "days"
+# Set once the whole history has been read, so later updates ask only for the gap.
+# It records what the integration did; how far back the site publishes is its own business.
+CONF_SEEDED: Final = "seeded"
 
-DEFAULT_DAYS: Final = 30
+DEFAULT_DAYS: Final = 365
 MIN_DAYS: Final = 7
 MAX_DAYS: Final = 3650
+
+# Every maturity being followed is a subentry of the one Euribor entry.
+SUBENTRY_MATURITY: Final = "maturity"
+TITLE: Final = "Euribor"
+
+# Each request reaches one day further back than it strictly needs to.
+SAFETY_DAYS: Final = 1
 
 # Rates are published once a day, on working days.
 UPDATE_INTERVAL: Final = timedelta(hours=3)
 
 # Sensor attributes.
-ATTR_HISTORY: Final = "history"
-ATTR_DATE: Final = "date"
-ATTR_RATE: Final = "rate"
 ATTR_MATURITY: Final = "maturity"
 ATTR_LATEST_DATE: Final = "latest_date"
 ATTR_LATEST_RATE: Final = "latest_rate"

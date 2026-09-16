@@ -1,28 +1,52 @@
-"""Euribor rates: the rate of one maturity, with its recent history.
+"""Euribor rates: the rate of each maturity being followed, with its history in statistics.
 
-One config entry is one maturity, with a sensor whose state is the newest rate.
+One config entry holds every maturity; each maturity is a subentry with its own
+sensors and its own place in Home Assistant's long term statistics.
 """
 
 from __future__ import annotations
 
+import asyncio
+
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
-from .coordinator import EuriborConfigEntry, EuriborCoordinator
+from .const import CONF_SEEDED, DOMAIN, SUBENTRY_MATURITY
+from .coordinator import EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData
+from .migration import VERSION, async_migrate_to_subentries, async_remove_empty_devices
 
 PLATFORMS = [Platform.SENSOR]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> bool:
-    coordinator = EuriborCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = coordinator
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    # Runs before any entry is set up, so an entry per maturity becomes one entry
+    # with a maturity inside it before Home Assistant tries to load them.
+    await async_migrate_to_subentries(hass)
+    return True
 
+
+async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> bool:
+    coordinators = {
+        subentry.subentry_id: EuriborCoordinator(hass, entry, subentry)
+        for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_MATURITY
+    }
+    entry.runtime_data = EuriborRuntimeData(coordinators)
+
+    # The sensors are added first, so the rates read below have an entity to be stored
+    # under. A maturity that cannot be read becomes unavailable and keeps trying; it does
+    # not stop the others from being set up.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_remove_empty_devices(hass, entry)
+    await asyncio.gather(*(coordinator.async_refresh() for coordinator in coordinators.values()))
+    _remember_history_was_read(hass, entry)
+
+    # Added last, so noting the flag above does not reload the entry that is still being set up.
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
     return True
 
@@ -33,3 +57,27 @@ async def async_update_listener(hass: HomeAssistant, entry: EuriborConfigEntry) 
 
 async def async_unload_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Entries from before 2.0 are converted in async_setup, which runs first.
+    # A newer version than this means Home Assistant was downgraded.
+    return entry.version <= VERSION
+
+
+def _remember_history_was_read(hass: HomeAssistant, entry: EuriborConfigEntry) -> None:
+    """Note on each maturity that its whole history has been read.
+
+    Later updates then ask only for the days since the newest rate. This happens after the
+    first read rather than during it, because changing a subentry reloads the entry, and a
+    reload in the middle of a refresh is how this went wrong before.
+    """
+    for coordinator in entry.runtime_data.coordinators.values():
+        if not coordinator.stored_history or coordinator.seeded:
+            continue
+        coordinator.seeded = True
+        hass.config_entries.async_update_subentry(
+            entry,
+            coordinator.subentry,
+            data={**coordinator.subentry.data, CONF_SEEDED: True},
+        )
