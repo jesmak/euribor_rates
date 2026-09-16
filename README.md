@@ -14,12 +14,12 @@ Hey dude! Help me out for a couple of :beers: or a :coffee:!
 
 ## What is it?
 
-A custom component that follows the Euribor rates from [euribor-rates.eu](https://www.euribor-rates.eu/). Each
-maturity is added separately and gets a sensor whose state is the newest rate, with the rates of the days before it in
-the sensor's attributes.
+A custom component that follows the Euribor rates from [euribor-rates.eu](https://www.euribor-rates.eu/). Add the
+integration once and give it a maturity; add more maturities to it whenever you like. Each one gets a sensor for its
+newest rate and another for the day that rate was published.
 
-The history in the attributes is what makes it useful with a chart card: see [Usage with
-apexcharts-card](#usage-with-apexcharts-card) below.
+The rates of earlier days are kept in Home Assistant's own long term statistics, so a year of Euribor can be drawn
+with any card that reads statistics, and the numbers survive a restart and the recorder's purging.
 
 ## Installation
 
@@ -40,52 +40,55 @@ apexcharts-card](#usage-with-apexcharts-card) below.
 
 ## Settings
 
-Add the integration once for each maturity you want to follow. To change how much history a sensor keeps, choose
-**Reconfigure** from its menu on the integration page. The maturity itself stays as it is, because the sensor is named
-after it.
+Adding the integration asks for the first maturity and how far back to read its history. Further maturities are added
+from the integration page with **Add maturity**; the ones already being followed are left out of the list. Choosing
+**Reconfigure** on a maturity changes how far back it reaches and reads that history again.
 
-| Name     | Type   | Description                                                      | Default |
-| -------- | ------ | ---------------------------------------------------------------- | ------- |
-| Maturity | enum   | `1 week`, `1 month`, `3 months`, `6 months` or `12 months`        |         |
-| Days     | number | How far back the rates in the sensor's attributes reach, in days | 30      |
+| Name                | Type   | Description                                                      | Default |
+| ------------------- | ------ | ---------------------------------------------------------------- | ------- |
+| Maturity            | enum   | `1 week`, `1 month`, `3 months`, `6 months` or `12 months`        |         |
+| History to import   | number | How far back the rates are read when the maturity is added, in days | 365     |
 
-## Sensor
+## Sensors
 
-The state is the newest published rate as a percentage. The sensor is named after its maturity, for example
-`sensor.euribor_12_months`.
+Each maturity has two:
 
-| Attribute       | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `latest_rate`   | The newest rate, the same as the state                  |
-| `latest_date`   | The day the newest rate was published                   |
-| `maturity`      | The maturity the sensor follows                         |
-| `history`       | The rates of the days before it, below                  |
-| `attribution`   | Data credit                                             |
+| Sensor                                | What it holds                                  |
+| ------------------------------------- | ---------------------------------------------- |
+| `sensor.euribor_12_months`            | The newest published rate, as a percentage     |
+| `sensor.euribor_12_months_published`  | The day that rate was published                |
 
-Each entry in `history` has:
+The rate sensor also carries `latest_rate`, `latest_date` and `maturity` as attributes. The published sensor is the
+one to build a staleness alarm on: rates come on working days, so a publication date more than a few days old means
+something is wrong at the source.
 
-| Key    | Description                    |
-| ------ | ------------------------------ |
-| `date` | The day, as `YYYY-MM-DD`       |
-| `rate` | The rate published that day    |
+## The history
 
-Rates are published once a day on working days, and the sensor is updated every three hours. The history isn't stored
-in the recorder, only the state. The sensor is unavailable while euribor-rates.eu can't be reached.
+Every rate read is written into the statistics of the rate sensor itself, so the series is queried like any other
+sensor's statistics. Home Assistant's own statistics graph card draws it, and apexcharts-card reads it with
+`statistics`:
 
-## Upgrading from 1.x
+```yaml
+type: custom:apexcharts-card
+graph_span: 365d
+header:
+  show: true
+  title: Euribor 12 months
+  show_states: true
+series:
+  - entity: sensor.euribor_12_months
+    statistics:
+      type: mean
+      period: day
+    stroke_width: 1
+    float_precision: 3
+```
 
-Nothing needs to be done: the maturity, the sensor, its history and the settings carry over, and entity IDs stay as
-they were. The number of days is now changed with **Reconfigure** instead of the options dialog.
-
-## Usage with apexcharts-card
-
-One use for this integration is a chart of the rates with
-[apexcharts-card](https://github.com/RomRider/apexcharts-card), drawn from the `history` attribute. Below is a
-configuration for the 12 month rate over a year, with annotations marking the days a loan's rate is updated.
+A fuller chart, with the rate over a year and annotations marking the days a loan's rate is updated:
 
 ![A chart of the Euribor 12 month rate](docs/images/apexcharts.png)
 
-```
+```yaml
 type: custom:apexcharts-card
 graph_span: 365d
 header:
@@ -119,10 +122,9 @@ apex_config:
           text: Renovation
 series:
   - entity: sensor.euribor_12_months
-    data_generator: |
-      return entity.attributes.history.map((entry) => {
-        return [entry["date"], entry["rate"]];
-      });
+    statistics:
+      type: mean
+      period: day
     stroke_width: 1
     float_precision: 3
     yaxis_id: daily
@@ -138,9 +140,23 @@ yaxis:
           fontSize: 8px
         formatter: |
           EVAL:function(value) {
-            return value.toFixed(1) + ' %'; 
+            return value.toFixed(1) + ' %';
           }
 ```
+
+After the first read, each update asks only for the days since the newest rate already stored, and one more for
+safety. A weekend costs a three day request, a fortnight's outage heals itself on the first update afterwards, and an
+ordinary day asks for a single day. Nothing has to be reconfigured to recover from a gap.
+
+## Upgrading from 1.x
+
+The maturities you follow, their sensors, their entity IDs and any names you have given them all carry over. Two
+things change:
+
+- **The `history` attribute is gone.** The rates now live in the sensor's statistics instead, which is what the
+  configuration above reads. A chart built on `entity.attributes.history` has to be changed to the `statistics` form.
+- **The maturities are now inside one integration entry** rather than one entry each, so a maturity can only be added
+  once and they are managed together.
 
 ## Data
 
@@ -157,15 +173,18 @@ python3.14 -m venv .venv
 .venv/bin/ruff check .
 ```
 
-| Path                           | What it contains                                      |
-| ------------------------------ | ----------------------------------------------------- |
-| `__init__.py`                  | Setup                                                 |
-| `config_flow.py`               | Choosing the maturity and the length of the history   |
-| `api.py`                       | The chart endpoint of euribor-rates.eu                |
-| `rates.py`                     | Reading the rates it sends                            |
-| `coordinator.py`               | Fetching the rates every three hours                  |
-| `sensor.py`                    | The sensor                                            |
-| `translations/<language>.json` | Home Assistant UI texts                               |
+| Path                           | What it contains                                       |
+| ------------------------------ | ------------------------------------------------------ |
+| `__init__.py`                  | Setup                                                  |
+| `migration.py`                 | Turning the entries of 1.x into one                    |
+| `config_flow.py`               | Adding the integration and its maturities              |
+| `api.py`                       | The chart endpoint of euribor-rates.eu                 |
+| `rates.py`                     | Reading the rates it sends                             |
+| `window.py`                    | How far back each request reaches                      |
+| `statistics.py`                | Keeping the rates in long term statistics              |
+| `coordinator.py`               | Fetching and storing, every three hours                |
+| `sensor.py`                    | The rate and its publication day                       |
+| `translations/<language>.json` | Home Assistant UI texts                                |
 
 [commits-shield]: https://img.shields.io/github/commit-activity/y/jesmak/euribor_rates.svg?style=for-the-badge
 [commits]: https://github.com/jesmak/euribor_rates/commits/main
