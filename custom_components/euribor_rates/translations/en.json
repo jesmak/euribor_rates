@@ -1,37 +1,35 @@
 {
   "config": {
-    "error": {
-      "connection_problem": "Could not retrieve Euribor rates",
-      "unknown": "Unknown error occured"
-    },
-    "abort": {
-      "already_configured": "This maturity is already configured"
-    },
     "step": {
       "user": {
         "title": "Euribor rates",
-        "description": "Euribor rates settings",
+        "description": "The maturity to follow, and how much of its history to keep.",
         "data": {
-          "days": "Days to retrieve",
-          "maturity": "Maturity"
+          "maturity": "Maturity",
+          "days": "Days of history"
+        },
+        "data_description": {
+          "maturity": "One sensor is created for the maturity.",
+          "days": "How far back the rates in the sensor's attributes reach."
         }
-      }
-    }
-  },
-  "options": {
-    "error": {
-      "invalid_auth": "Could not retrieve Euribor rates",
-      "unknown": "Unknown error occured"
-    },
-    "step": {
-      "init": {
+      },
+      "reconfigure": {
         "title": "Euribor rates",
-        "description": "Euribor rates settings",
+        "description": "How much history the sensor of {maturity} keeps.",
         "data": {
-          "days": "Days to retrieve",
-          "maturity": "Maturity"
+          "days": "Days of history"
+        },
+        "data_description": {
+          "days": "How far back the rates in the sensor's attributes reach."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "euribor-rates.eu couldn't be reached. Try again in a moment."
+    },
+    "abort": {
+      "already_configured": "This maturity has already been added.",
+      "reconfigure_successful": "Saved."
     }
   }
 }

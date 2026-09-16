@@ -1,118 +1,94 @@
-import logging
+"""Config flow: a maturity is added by choosing it and how much history to keep."""
 
-import homeassistant.helpers.config_validation as cv
+from __future__ import annotations
+
+from typing import Any
+
 import voluptuous as vol
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
-from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.exceptions import HomeAssistantError
+from .api import EuriborClient
 from .const import (
+    CONF_DAYS,
+    CONF_MATURITY,
+    DEFAULT_DAYS,
     DOMAIN,
     MATURITIES,
-    CONF_MATURITY,
-    CONF_DAYS, SERIES_WEEK, SERIES_MONTH, SERIES_YEAR, SERIES_QUARTER_YEAR, SERIES_HALF_YEAR
+    MAX_DAYS,
+    MIN_DAYS,
+    SERIES_BY_MATURITY,
 )
-from .session import EuriborException, EuriborSession
+from .exceptions import EuriborError
 
-_LOGGER = logging.getLogger(__name__)
+DAYS_SELECTOR = NumberSelector(NumberSelectorConfig(min=MIN_DAYS, max=MAX_DAYS, step=1, mode=NumberSelectorMode.BOX))
 
-CONFIGURE_SCHEMA = vol.Schema(
+USER_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_MATURITY): vol.All(cv.string, vol.In(MATURITIES)),
-        vol.Required(CONF_DAYS, default=30): cv.positive_int,
+        vol.Required(CONF_MATURITY): SelectSelector(
+            SelectSelectorConfig(options=MATURITIES, mode=SelectSelectorMode.DROPDOWN, sort=False)
+        ),
+        vol.Required(CONF_DAYS, default=DEFAULT_DAYS): DAYS_SELECTOR,
     }
 )
 
-RECONFIGURE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_MATURITY): vol.All(cv.string, vol.In(MATURITIES)),
-        vol.Required(CONF_DAYS): cv.positive_int,
-    }
-)
+RECONFIGURE_SCHEMA = vol.Schema({vol.Required(CONF_DAYS): DAYS_SELECTOR})
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, any]) -> str:
-    try:
-        if data["maturity"] == "1 week":
-            series = SERIES_WEEK
-        elif data["maturity"] == "1 month":
-            series = SERIES_MONTH
-        elif data["maturity"] == "3 months":
-            series = SERIES_QUARTER_YEAR
-        elif data["maturity"] == "6 months":
-            series = SERIES_HALF_YEAR
-        else:
-            series = SERIES_YEAR
-        session = EuriborSession(data["days"], series)
-        await hass.async_add_executor_job(session.call_api)
-
-    except EuriborException:
-        raise ConnectionProblem
-
-    return data["maturity"]
-
-
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class EuriborConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+    MINOR_VERSION = 1
 
-    async def async_step_user(self, user_input: dict[str, any] = None) -> FlowResult:
-
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is None:
-            return self.async_show_form(step_id="user", data_schema=CONFIGURE_SCHEMA)
+            return self.async_show_form(step_id="user", data_schema=USER_SCHEMA)
 
-        await self.async_set_unique_id(f"euribor_{user_input[CONF_MATURITY]}")
+        maturity = user_input[CONF_MATURITY]
+        # The same unique id as earlier versions gave, so a maturity is still added only once.
+        await self.async_set_unique_id(f"euribor_{maturity}")
         self._abort_if_unique_id_configured()
 
-        errors = {}
-
-        try:
-            info = await validate_input(self.hass, user_input)
-        except ConnectionProblem:
-            errors["base"] = "connection_problem"
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
-        else:
-            return self.async_create_entry(title=info, data=user_input)
-
-        return self.async_show_form(step_id="user", data_schema=CONFIGURE_SCHEMA, errors=errors)
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        return OptionsFlowHandler(config_entry)
-
-
-class OptionsFlowHandler(config_entries.OptionsFlow):
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self._config_entry = config_entry
-
-    async def async_step_init(self, user_input: dict[str, any] = None) -> FlowResult:
-        if user_input is None:
-            return self.async_show_form(step_id="init", data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_DAYS, default=self._config_entry.data.get(CONF_DAYS)): cv.positive_int
-                })
+        days = int(user_input[CONF_DAYS])
+        if not await self._reachable(maturity, days):
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self.add_suggested_values_to_schema(USER_SCHEMA, user_input),
+                errors={"base": "cannot_connect"},
             )
 
-        errors = {}
+        return self.async_create_entry(title=maturity, data={CONF_MATURITY: maturity, CONF_DAYS: days})
 
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """How much history the sensor keeps. The maturity is what the entity is named after, so it stays."""
+        entry = self._get_reconfigure_entry()
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self.add_suggested_values_to_schema(RECONFIGURE_SCHEMA, dict(entry.data)),
+                description_placeholders={"maturity": entry.data[CONF_MATURITY]},
+            )
+
+        days = int(user_input[CONF_DAYS])
+        if not await self._reachable(entry.data[CONF_MATURITY], days):
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self.add_suggested_values_to_schema(RECONFIGURE_SCHEMA, user_input),
+                description_placeholders={"maturity": entry.data[CONF_MATURITY]},
+                errors={"base": "cannot_connect"},
+            )
+
+        return self.async_update_reload_and_abort(entry, data={**entry.data, CONF_DAYS: days})
+
+    async def _reachable(self, maturity: str, days: int) -> bool:
         try:
-            user_input[CONF_MATURITY] = self._config_entry.data[CONF_MATURITY]
-            await validate_input(self.hass, user_input)
-        except ConnectionProblem:
-            errors["base"] = "connection_problem"
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
-        else:
-            self.hass.config_entries.async_update_entry(self._config_entry, data=user_input, options=self._config_entry.options)
-            return self.async_create_entry(title="", data={})
-
-        return self.async_show_form(step_id="init", data_schema=RECONFIGURE_SCHEMA, errors=errors)
-
-
-class ConnectionProblem(HomeAssistantError):
-    """Error to indicate there is an issue with the connection"""
+            await EuriborClient(self.hass).rates(SERIES_BY_MATURITY[maturity], days)
+        except EuriborError:
+            return False
+        return True

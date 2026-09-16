@@ -1,50 +1,89 @@
 # Euribor rates for Home Assistant
 
+Home Assistant integration for the Euribor rates published by euribor-rates.eu.
+
+[![GitHub Release][releases-shield]][releases]
+[![License][license-shield]](LICENSE)
+[![GitHub Activity][commits-shield]][commits]
+
+## Support
+
+Hey dude! Help me out for a couple of :beers: or a :coffee:!
+
+[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/jesmak)
+
 ## What is it?
 
-A custom component that integrates with euribor-rates.eu to retrieve information about different Euribor rates.
+A custom component that follows the Euribor rates from [euribor-rates.eu](https://www.euribor-rates.eu/). Each
+maturity is added separately and gets a sensor whose state is the newest rate, with the rates of the days before it in
+the sensor's attributes.
+
+The history in the attributes is what makes it useful with a chart card: see [Usage with
+apexcharts-card](#usage-with-apexcharts-card) below.
 
 ## Installation
 
 ### With HACS
 
-1. Add this repository to HACS custom repositories
-2. Search for Euribor rates in HACS and install with type integration
+1. Add this repository to HACS custom repositories with type **Integration**
+2. Search for Euribor rates in HACS and download it
 3. Restart Home Assistant
-4. Enter your account credentials and configre other settings as you wish
+4. Add the integration in Settings › Devices & services, and choose a maturity
 
 ### Manual
 
-1. Download source code from latest release tag
-2. Copy custom_components/euribor_rates folder to your Home Assistant installation's config/custom_components folder.
+1. Download the source code from the latest release
+2. Copy the `custom_components/euribor_rates` folder to your Home Assistant installation's `config/custom_components`
+   folder
 3. Restart Home Assistant
-4. Configure the integration by adding a new integration in settings/integrations page of Home Assistant
+4. Add the integration in Settings › Devices & services, and choose a maturity
 
-### Integration settings
+## Settings
 
-| Name                         | Type    | Requirement  | Description                                          | Default             |
-| ---------------------------- | ------- | ------------ | ---------------------------------------------------- | ------------------- |
-| days                         | int     | **Required** | Number of days to retrieve                           | 30                  |
-| maturity                     | string  | **Required** | Maturity of rates to retrieve (1 week, 1 month, 3 months, 6 months or 12 months) | 1 week               |
+Add the integration once for each maturity you want to follow. To change how much history a sensor keeps, choose
+**Reconfigure** from its menu on the integration page. The maturity itself stays as it is, because the sensor is named
+after it.
 
-### State attributes
+| Name     | Type   | Description                                                      | Default |
+| -------- | ------ | ---------------------------------------------------------------- | ------- |
+| Maturity | enum   | `1 week`, `1 month`, `3 months`, `6 months` or `12 months`        |         |
+| Days     | number | How far back the rates in the sensor's attributes reach, in days | 30      |
 
-This integration returns the latest Euribor rate as the sensor state. It also returns the following state attributes.
+## Sensor
 
-| Name                         | Type    | Description                                          |
-| ---------------------------- | ------- | ---------------------------------------------------- |
-| latest_rate                  | float   | Latest Euribor rate for selected maturity of the sensor                |
-| latest_date                  | date    | Date of the latest Euribor rate                          |
-| maturity                     | string  | Selected maturity of the sensor                             |
-| history                      | [{date: date, rate: float}]| An array of Euribor rates for the selected maturity of the sensor, for a time period set with days-setting (latest rate and X days before that) |
+The state is the newest published rate as a percentage. The sensor is named after its maturity, for example
+`sensor.euribor_12_months`.
+
+| Attribute       | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `latest_rate`   | The newest rate, the same as the state                  |
+| `latest_date`   | The day the newest rate was published                   |
+| `maturity`      | The maturity the sensor follows                         |
+| `history`       | The rates of the days before it, below                  |
+| `attribution`   | Data credit                                             |
+
+Each entry in `history` has:
+
+| Key    | Description                    |
+| ------ | ------------------------------ |
+| `date` | The day, as `YYYY-MM-DD`       |
+| `rate` | The rate published that day    |
+
+Rates are published once a day on working days, and the sensor is updated every three hours. The history isn't stored
+in the recorder, only the state. The sensor is unavailable while euribor-rates.eu can't be reached.
+
+## Upgrading from 1.x
+
+Nothing needs to be done: the maturity, the sensor, its history and the settings carry over, and entity IDs stay as
+they were. The number of days is now changed with **Reconfigure** instead of the options dialog.
 
 ### Usage with apexcharts-card
 
-One use case for this integration could be to show Euribor rates with [apexcharts-card](https://github.com/RomRider/apexcharts-card).
+One use for this integration is a chart of the rates with
+[apexcharts-card](https://github.com/RomRider/apexcharts-card), drawn from the `history` attribute. Below is a
+configuration for the 12 month rate over a year, with annotations marking the days a loan's rate is updated.
 
-Below is an example configuration for showing rates for Euribor 12 months, for a time period of one year. As an example, annotation are in place for some days. You could higlight for example the dates when the interest rate of a loan gets updated.
-
-![euribor](https://user-images.githubusercontent.com/54674286/227618468-a86f770a-8d83-4e5d-a05c-8b06abfb1f39.png)
+![A chart of the Euribor 12 month rate](docs/images/apexcharts.png)
 
 ```
 type: custom:apexcharts-card
@@ -102,3 +141,34 @@ yaxis:
             return value.toFixed(1) + ' %'; 
           }
 ```
+
+## Data
+
+Euribor rates: [euribor-rates.eu](https://www.euribor-rates.eu/).
+
+## Development
+
+Requires Python 3.14.
+
+```
+python3.14 -m venv .venv
+.venv/bin/pip install -r requirements_test.txt
+.venv/bin/pytest
+.venv/bin/ruff check .
+```
+
+| Path                           | What it contains                                      |
+| ------------------------------ | ----------------------------------------------------- |
+| `__init__.py`                  | Setup                                                 |
+| `config_flow.py`               | Choosing the maturity and the length of the history   |
+| `api.py`                       | The chart endpoint of euribor-rates.eu                |
+| `rates.py`                     | Reading the rates it sends                            |
+| `coordinator.py`               | Fetching the rates every three hours                  |
+| `sensor.py`                    | The sensor                                            |
+| `translations/<language>.json` | Home Assistant UI texts                               |
+
+[commits-shield]: https://img.shields.io/github/commit-activity/y/jesmak/euribor_rates.svg?style=for-the-badge
+[commits]: https://github.com/jesmak/euribor_rates/commits/main
+[license-shield]: https://img.shields.io/github/license/jesmak/euribor_rates.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/jesmak/euribor_rates.svg?style=for-the-badge
+[releases]: https://github.com/jesmak/euribor_rates/releases

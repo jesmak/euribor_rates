@@ -1,11 +1,15 @@
 {
-  "codeowners": ["@jesmak"],
+  "domain": "euribor_rates",
+  "name": "Euribor rates",
+  "codeowners": [
+    "@jesmak"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/jesmak/euribor_rates",
-  "domain": "euribor_rates",
+  "integration_type": "service",
   "iot_class": "cloud_polling",
-  "name": "Euribor rates",
+  "issue_tracker": "https://github.com/jesmak/euribor_rates/issues",
   "requirements": [],
-  "version": "1.0.3"
+  "version": "2.0.0"
 }
