@@ -2,9 +2,11 @@
 
 Home Assistant integration for the Euribor rates published by euribor-rates.eu.
 
-[![GitHub Release][releases-shield]][releases]
-[![License][license-shield]](LICENSE)
-[![GitHub Activity][commits-shield]][commits]
+[![GitHub Release][releases-shield]][releases] [![GitHub Release Date][release-date-shield]][releases]
+
+[![HACS][hacs-shield]][hacs] [![Home Assistant][home-assistant-shield]][home-assistant] [![License][license-shield]](LICENSE)
+
+![Project Maintenance][maintenance-shield] [![GitHub Activity][commits-shield]][commits] [![Open bugs][bugs-shield]][bugs] [![Open enhancements][enhancements-shield]][enhancements]
 
 ## Support
 
@@ -190,8 +192,18 @@ python3.14 -m venv .venv
 | `sensor.py`                    | The rate and its publication day                       |
 | `translations/<language>.json` | Home Assistant UI texts                                |
 
+[releases-shield]: https://img.shields.io/github/release/jesmak/euribor_rates.svg?style=for-the-badge
+[release-date-shield]: https://img.shields.io/github/release-date/jesmak/euribor_rates?style=for-the-badge
+[releases]: https://github.com/jesmak/euribor_rates/releases
+[hacs-shield]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[hacs]: https://hacs.xyz/docs/faq/custom_repositories/
+[home-assistant-shield]: https://img.shields.io/badge/Home%20Assistant-UI%20setup-green.svg?style=for-the-badge
+[home-assistant]: https://www.home-assistant.io/
+[license-shield]: https://img.shields.io/github/license/jesmak/euribor_rates.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg?style=for-the-badge
 [commits-shield]: https://img.shields.io/github/commit-activity/y/jesmak/euribor_rates.svg?style=for-the-badge
 [commits]: https://github.com/jesmak/euribor_rates/commits/main
-[license-shield]: https://img.shields.io/github/license/jesmak/euribor_rates.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/jesmak/euribor_rates.svg?style=for-the-badge
-[releases]: https://github.com/jesmak/euribor_rates/releases
+[bugs-shield]: https://img.shields.io/github/issues/jesmak/euribor_rates/bug?style=for-the-badge&label=bugs&color=red
+[bugs]: https://github.com/jesmak/euribor_rates/labels/bug
+[enhancements-shield]: https://img.shields.io/github/issues/jesmak/euribor_rates/enhancement?style=for-the-badge&label=enhancements&color=blue
+[enhancements]: https://github.com/jesmak/euribor_rates/labels/enhancement
