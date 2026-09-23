@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from custom_components.euribor_rates.const import MAX_DAYS
+from custom_components.euribor_rates.const import MAX_DAYS, MIN_SPAN_DAYS
 from custom_components.euribor_rates.window import span_days
 
 TODAY = date(2026, 9, 16)
@@ -20,9 +20,7 @@ def test_nothing_stored_yet_reads_the_whole_history_asked_for() -> None:
 @pytest.mark.parametrize(
     ("newest", "expected"),
     [
-        (date(2026, 9, 16), 1),  # already have today: still ask, but only for today
-        (date(2026, 9, 15), 2),  # yesterday
-        (date(2026, 9, 11), 6),  # a long weekend
+        (date(2026, 9, 1), 16),  # a fortnight's outage
         (date(2026, 8, 27), 21),  # a three week outage heals itself
     ],
 )
@@ -30,8 +28,25 @@ def test_the_window_reaches_back_to_the_newest_rate_stored(newest: date, expecte
     assert span_days(newest, TODAY, seed=365) == expected
 
 
+@pytest.mark.parametrize(
+    "newest",
+    [
+        date(2026, 9, 16),  # today: the recorder's own hourly statistics can make it look like this
+        date(2026, 9, 15),  # yesterday
+        date(2026, 9, 11),  # a long weekend
+    ],
+)
+def test_a_short_gap_still_asks_for_enough_days_to_hold_a_rate(newest: date) -> None:
+    # The site refuses a request that holds no rates, and publishes each rate a day late.
+    assert span_days(newest, TODAY, seed=365) == MIN_SPAN_DAYS
+
+
 def test_a_rate_from_the_future_does_not_ask_for_a_negative_span() -> None:
-    assert span_days(date(2026, 9, 20), TODAY, seed=365) == 1
+    assert span_days(date(2026, 9, 20), TODAY, seed=365) == MIN_SPAN_DAYS
+
+
+def test_a_short_seed_still_asks_for_enough_days_to_hold_a_rate() -> None:
+    assert span_days(None, TODAY, seed=7) == MIN_SPAN_DAYS
 
 
 def test_the_window_never_grows_past_what_the_site_will_serve() -> None:

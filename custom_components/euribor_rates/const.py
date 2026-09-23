@@ -46,6 +46,11 @@ TITLE: Final = "Euribor"
 # Each request reaches one day further back than it strictly needs to.
 SAFETY_DAYS: Final = 1
 
+# euribor-rates.eu answers a request with no rates in it with status 400, and it shows
+# each rate a day late. Asking for at least this many days always covers a published
+# rate, even over a weekend next to Easter's holidays.
+MIN_SPAN_DAYS: Final = 10
+
 # Rates are published once a day, on working days.
 UPDATE_INTERVAL: Final = timedelta(hours=3)
 
