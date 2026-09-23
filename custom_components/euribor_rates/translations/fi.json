@@ -9,7 +9,7 @@
           "days": "Tuotavan historian pituus päivinä"
         },
         "data_description": {
-          "maturity": "Korkojaksolle luodaan yksi sensori.",
+          "maturity": "Korkojaksolle luodaan kolme sensoria: korko, sen julkaisupäivä ja historia.",
           "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
         }
       }
@@ -33,7 +33,7 @@
             "days": "Tuotavan historian pituus päivinä"
           },
           "data_description": {
-            "maturity": "Korkojaksolle luodaan yksi sensori.",
+            "maturity": "Korkojaksolle luodaan kolme sensoria: korko, sen julkaisupäivä ja historia.",
             "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
           }
         },
@@ -63,6 +63,23 @@
       "history": {
         "name": "Historia"
       }
+    }
+  },
+  "device": {
+    "maturity_1_week": {
+      "name": "Euribor 1 viikko"
+    },
+    "maturity_1_month": {
+      "name": "Euribor 1 kuukausi"
+    },
+    "maturity_3_months": {
+      "name": "Euribor 3 kuukautta"
+    },
+    "maturity_6_months": {
+      "name": "Euribor 6 kuukautta"
+    },
+    "maturity_12_months": {
+      "name": "Euribor 12 kuukautta"
     }
   }
 }

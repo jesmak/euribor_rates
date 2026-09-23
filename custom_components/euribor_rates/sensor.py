@@ -38,7 +38,8 @@ class EuriborSensor(CoordinatorEntity[EuriborCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.subentry.subentry_id)},
-            name=f"Euribor {coordinator.maturity}",
+            # Named in Home Assistant's language, "Euribor 12 months" in English.
+            translation_key=f"maturity_{coordinator.maturity.replace(' ', '_')}",
             manufacturer="euribor-rates.eu",
             entry_type=DeviceEntryType.SERVICE,
         )
@@ -81,7 +82,6 @@ class EuriborPublishedSensor(EuriborSensor):
     """The day the newest rate was published, which says whether the numbers are still fresh."""
 
     _attr_translation_key = "published"
-    _attr_name = "Published"
     _attr_icon = "mdi:calendar-clock"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
@@ -106,7 +106,6 @@ class EuriborHistorySensor(EuriborSensor):
     """
 
     _attr_translation_key = "history"
-    _attr_name = "History"
     _attr_icon = "mdi:chart-line"
     _attr_device_class = SensorDeviceClass.DATE
 

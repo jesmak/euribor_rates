@@ -253,3 +253,26 @@ async def test_statistics_from_2_0_stay_with_the_rate_sensor_and_the_history_is_
     assert span >= 365 * 86400000, "the history sensor starts out with the whole year"
     assert len(await stored(hass, HISTORY)) == 4
     assert [row["mean"] for row in await stored(hass, RATE)] == [3.0], "the old statistics are left as they were"
+
+
+async def test_the_names_and_new_entity_ids_follow_home_assistants_language(
+    recorder_mock,
+    enable_custom_integrations,
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+) -> None:
+    hass.config.language = "fi"
+    entry = euribor_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Home Assistant builds new entity IDs in its own language for Finnish; existing ones keep theirs.
+    ids = sorted(state.entity_id for state in hass.states.async_all("sensor"))
+    assert ids == [
+        "sensor.euribor_12_kuukautta",
+        "sensor.euribor_12_kuukautta_historia",
+        "sensor.euribor_12_kuukautta_julkaistu",
+    ]
+    assert hass.states.get("sensor.euribor_12_kuukautta").name == "Euribor 12 kuukautta"
+    assert hass.states.get("sensor.euribor_12_kuukautta_julkaistu").name == "Euribor 12 kuukautta Julkaistu"
+    assert hass.states.get("sensor.euribor_12_kuukautta_historia").name == "Euribor 12 kuukautta Historia"

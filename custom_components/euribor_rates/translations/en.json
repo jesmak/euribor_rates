@@ -9,7 +9,7 @@
           "days": "History to import, in days"
         },
         "data_description": {
-          "maturity": "One sensor is created for the maturity.",
+          "maturity": "The maturity gets three sensors: its rate, the day the rate was published, and its history.",
           "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
         }
       }
@@ -33,7 +33,7 @@
             "days": "History to import, in days"
           },
           "data_description": {
-            "maturity": "One sensor is created for the maturity.",
+            "maturity": "The maturity gets three sensors: its rate, the day the rate was published, and its history.",
             "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
           }
         },
@@ -63,6 +63,23 @@
       "history": {
         "name": "History"
       }
+    }
+  },
+  "device": {
+    "maturity_1_week": {
+      "name": "Euribor 1 week"
+    },
+    "maturity_1_month": {
+      "name": "Euribor 1 month"
+    },
+    "maturity_3_months": {
+      "name": "Euribor 3 months"
+    },
+    "maturity_6_months": {
+      "name": "Euribor 6 months"
+    },
+    "maturity_12_months": {
+      "name": "Euribor 12 months"
     }
   }
 }
