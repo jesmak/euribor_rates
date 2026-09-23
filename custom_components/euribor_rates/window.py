@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from .const import MAX_DAYS, SAFETY_DAYS
+from .const import MAX_DAYS, MIN_SPAN_DAYS, SAFETY_DAYS
 
 
 def span_days(newest: date | None, today: date, seed: int) -> int:
@@ -20,10 +20,14 @@ def span_days(newest: date | None, today: date, seed: int) -> int:
     Otherwise it is the distance to the newest rate that is already stored,
     which heals a gap of any length by itself: a weekend needs three days, a
     fortnight's outage needs fourteen.
+
+    It is never shorter than MIN_SPAN_DAYS. The newest stored day can be today even
+    when today's rate isn't out, because the recorder keeps hourly statistics of the
+    sensor under the same id, and a request that finds no rates is refused.
     """
     if newest is None:
         needed = seed
     else:
         needed = max((today - newest).days, 0)
 
-    return min(needed + SAFETY_DAYS, MAX_DAYS)
+    return min(max(needed + SAFETY_DAYS, MIN_SPAN_DAYS), MAX_DAYS)
