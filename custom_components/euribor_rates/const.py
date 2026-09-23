@@ -31,9 +31,8 @@ MATURITIES: Final = list(SERIES_BY_MATURITY)
 # Config entry data. The keys are those of earlier versions, so existing entries keep working.
 CONF_MATURITY: Final = "maturity"
 CONF_DAYS: Final = "days"
-# Set once the whole history has been read, so later updates ask only for the gap.
-# It records what the integration did; how far back the site publishes is its own business.
-CONF_SEEDED: Final = "seeded"
+# 2.0 kept a "seeded" flag here too. It is no longer read: the history sensor's statistics
+# hold only what this integration writes, so they tell by themselves whether it has been read.
 
 DEFAULT_DAYS: Final = 365
 MIN_DAYS: Final = 7

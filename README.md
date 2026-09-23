@@ -53,12 +53,13 @@ from the integration page with **Add maturity**; the ones already being followed
 
 ## Sensors
 
-Each maturity has two:
+Each maturity has three:
 
-| Sensor                                | What it holds                                  |
-| ------------------------------------- | ---------------------------------------------- |
-| `sensor.euribor_12_months`            | The newest published rate, as a percentage     |
-| `sensor.euribor_12_months_published`  | The day that rate was published                |
+| Sensor                                | What it holds                                                   |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `sensor.euribor_12_months`            | The newest published rate, as a percentage                      |
+| `sensor.euribor_12_months_published`  | The day that rate was published                                 |
+| `sensor.euribor_12_months_history`    | The day of the newest rate; the rates themselves in its statistics |
 
 The rate sensor also carries `latest_rate`, `latest_date` and `maturity` as attributes. The published sensor is the
 one to build a staleness alarm on: rates come on working days, so a publication date more than a few days old means
@@ -66,17 +67,25 @@ something is wrong at the source.
 
 ## The history
 
-Every rate read is written into the statistics of the rate sensor itself, so the series is queried like any other
-sensor's statistics. Home Assistant's own statistics graph card draws it, and so does apexcharts-card.
+Every rate read is written into the statistics of the history sensor, one value for each published day, under the
+day the rate is for. Home Assistant's own statistics graph card draws it, and so does apexcharts-card. Weekends and
+holidays have no rate, so they have no value either.
 
-After the first read, each update asks only for the days since the newest rate already stored, and one more for
-safety. A weekend costs a three day request, a fortnight's outage heals itself on the first update afterwards, and an
-ordinary day asks for a single day. Nothing has to be reconfigured to recover from a gap.
+The rates are kept apart from the rate sensor because euribor-rates.eu publishes each rate a day late. The rate
+sensor always shows the rate of an earlier day, and Home Assistant's own statistics of it follow what it showed. The
+history sensor has no state class, so Home Assistant keeps no statistics of its own for it, and its values are
+exactly the published rates. They are stored without a unit, because the history sensor's state is a date; add
+`unit: '%'` to a chart to show one.
+
+After the first read, each update asks only for the days since the newest rate already stored, and never for fewer
+than ten. A fortnight's outage heals itself on the first update afterwards, and nothing has to be reconfigured to
+recover from a gap.
 
 ## Usage with apexcharts-card
 
 One use for this integration is a chart of the rates with [apexcharts-card](https://github.com/RomRider/apexcharts-card),
-which reads the sensor's statistics:
+which reads the history sensor's statistics. The rate sensor is a second series that only shows the newest rate in
+the header:
 
 ```yaml
 type: custom:apexcharts-card
@@ -86,12 +95,22 @@ header:
   title: Euribor 12 months
   show_states: true
 series:
-  - entity: sensor.euribor_12_months
+  - entity: sensor.euribor_12_months_history
+    name: Euribor 12 months
     statistics:
       type: mean
       period: day
+    unit: '%'
     stroke_width: 1
     float_precision: 3
+    show:
+      in_header: false
+  - entity: sensor.euribor_12_months
+    name: Newest rate
+    float_precision: 3
+    show:
+      in_chart: false
+      in_header: raw
 ```
 
 A fuller chart, with the rate over a year and annotations marking the days a loan's rate is updated:
@@ -131,14 +150,24 @@ apex_config:
             color: '#000'
           text: Renovation
 series:
-  - entity: sensor.euribor_12_months
+  - entity: sensor.euribor_12_months_history
     statistics:
       type: mean
       period: day
+    unit: '%'
     stroke_width: 1
     float_precision: 3
     yaxis_id: daily
     name: Rate of the day
+    show:
+      in_header: false
+  - entity: sensor.euribor_12_months
+    name: Newest rate
+    float_precision: 3
+    yaxis_id: daily
+    show:
+      in_chart: false
+      in_header: raw
 yaxis:
   - id: daily
     min: -0.5
@@ -153,6 +182,14 @@ yaxis:
             return value.toFixed(1) + ' %';
           }
 ```
+
+## Upgrading from 2.0
+
+**Point your charts at the history sensor.** In 2.0 the rates were kept in the rate sensor's statistics, where they
+were mixed with Home Assistant's own statistics of what the sensor showed. A chart on `sensor.euribor_12_months`
+keeps working but shows those mixed values; change its `entity` to `sensor.euribor_12_months_history` and add
+`unit: '%'`, as in the examples above. The history sensor reads the whole history on the first update after
+upgrading. The rate sensor's existing statistics are left as they were.
 
 ## Upgrading from 1.x
 

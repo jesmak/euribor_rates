@@ -59,6 +59,9 @@
     "sensor": {
       "published": {
         "name": "Published"
+      },
+      "history": {
+        "name": "History"
       }
     }
   }

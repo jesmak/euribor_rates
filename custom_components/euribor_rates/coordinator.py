@@ -15,7 +15,6 @@ from .api import EuriborClient
 from .const import (
     CONF_DAYS,
     CONF_MATURITY,
-    CONF_SEEDED,
     DEFAULT_DAYS,
     DOMAIN,
     SERIES_BY_MATURITY,
@@ -60,11 +59,8 @@ class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
         self.maturity: str = subentry.data[CONF_MATURITY]
         # How far back to reach when there is nothing stored yet.
         self.seed_days: int = int(subentry.data.get(CONF_DAYS) or DEFAULT_DAYS)
-        self.seeded: bool = bool(subentry.data.get(CONF_SEEDED))
-        # Set when a read covered the whole history; setup writes it to the subentry
-        # afterwards, because changing config during a refresh reloads the entry.
-        self.stored_history: bool = False
         self.rate_unique_id = f"euribor_{self.maturity.replace(' ', '_')}"
+        self.history_unique_id = f"{self.rate_unique_id}_history"
         self._client = EuriborClient(hass)
         # Rates fetched before the sensor existed, waiting for an entity id to be stored under.
         self._pending: list[Rate] = []
@@ -75,9 +71,9 @@ class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
             raise UpdateFailed(f"euribor-rates.eu has no maturity called {self.maturity}")
 
         statistic_id = self.statistic_id()
-        # Until the whole history has been read once, ask for all of it. After that the
-        # newest stored day decides how far back to reach.
-        newest = await newest_stored(self.hass, statistic_id) if self.seeded and statistic_id else None
+        # Only the rates written here are in the history sensor's statistics, so the newest
+        # of them decides how far back to reach, and none at all means reading the whole history.
+        newest = await newest_stored(self.hass, statistic_id) if statistic_id else None
         days = span_days(newest, dt_util.utcnow().date(), self.seed_days)
         _LOGGER.debug("Asking for %s days of %s (newest stored %s)", days, self.maturity, newest)
 
@@ -90,8 +86,8 @@ class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
         return MaturityRates(latest(rates))
 
     def statistic_id(self) -> str | None:
-        """The rate sensor's entity id, which is what its statistics are kept under."""
-        return er.async_get(self.hass).async_get_entity_id("sensor", DOMAIN, self.rate_unique_id)
+        """The history sensor's entity id, which is what the rates are kept under."""
+        return er.async_get(self.hass).async_get_entity_id("sensor", DOMAIN, self.history_unique_id)
 
     def _keep(self, rates: list[Rate], statistic_id: str | None) -> None:
         if statistic_id is None:
@@ -99,11 +95,9 @@ class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
             self._pending = rates
             return
         store(self.hass, statistic_id, f"Euribor {self.maturity}", rates)
-        self.stored_history = True
 
     def store_pending(self, entity_id: str) -> None:
         """Called by the sensor once it has an entity id of its own."""
         if self._pending:
             store(self.hass, entity_id, f"Euribor {self.maturity}", self._pending)
             self._pending = []
-            self.stored_history = True
