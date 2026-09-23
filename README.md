@@ -61,6 +61,10 @@ Each maturity has three:
 | `sensor.euribor_12_months_published`  | The day that rate was published                                 |
 | `sensor.euribor_12_months_history`    | The day of the newest rate; the rates themselves in its statistics |
 
+The names follow Home Assistant's language, and so do the IDs of newly created sensors: in Finnish, for instance,
+the history sensor of a new maturity is `sensor.euribor_12_kuukautta_historia`. The examples here use the English
+IDs; use the ones your sensors have. Existing sensors keep the IDs they were created with.
+
 The rate sensor also carries `latest_rate`, `latest_date` and `maturity` as attributes. The published sensor is the
 one to build a staleness alarm on: rates come on working days, so a publication date more than a few days old means
 something is wrong at the source.
@@ -188,8 +192,9 @@ yaxis:
 **Point your charts at the history sensor.** In 2.0 the rates were kept in the rate sensor's statistics, where they
 were mixed with Home Assistant's own statistics of what the sensor showed. A chart on `sensor.euribor_12_months`
 keeps working but shows those mixed values; change its `entity` to `sensor.euribor_12_months_history` and add
-`unit: '%'`, as in the examples above. The history sensor reads the whole history on the first update after
-upgrading. The rate sensor's existing statistics are left as they were.
+`unit: '%'`, as in the examples above. The history sensor is new, so its ID follows Home Assistant's language
+and may differ from the example. It reads the whole history on the first update after upgrading. The rate
+sensor's existing statistics are left as they were, and the other sensors keep their IDs.
 
 ## Upgrading from 1.x
 
