@@ -1,8 +1,8 @@
-"""The sensors of one maturity: its newest rate, and the day that rate is from."""
+"""The sensors of one maturity: its newest rate, the day that rate is from, and its history."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
@@ -23,13 +23,13 @@ async def async_setup_entry(
 ) -> None:
     for subentry_id, coordinator in entry.runtime_data.coordinators.items():
         async_add_entities(
-            [EuriborRateSensor(coordinator), EuriborPublishedSensor(coordinator)],
+            [EuriborRateSensor(coordinator), EuriborPublishedSensor(coordinator), EuriborHistorySensor(coordinator)],
             config_subentry_id=subentry_id,
         )
 
 
 class EuriborSensor(CoordinatorEntity[EuriborCoordinator], SensorEntity):
-    """What both sensors of a maturity share."""
+    """What the sensors of a maturity share."""
 
     _attr_attribution = ATTRIBUTION
     _attr_has_entity_name = True
@@ -45,7 +45,11 @@ class EuriborSensor(CoordinatorEntity[EuriborCoordinator], SensorEntity):
 
 
 class EuriborRateSensor(EuriborSensor):
-    """The newest published rate, and the history of it in the sensor's statistics."""
+    """The newest published rate.
+
+    It keeps its state class, so the recorder's statistics of it follow what it showed.
+    The rates by the day they are for are in the history sensor's statistics.
+    """
 
     _attr_name = None
     _attr_icon = "mdi:percent-circle-outline"
@@ -57,11 +61,6 @@ class EuriborRateSensor(EuriborSensor):
         super().__init__(coordinator)
         # The same unique id as in earlier versions, so the entity keeps its id and history.
         self._attr_unique_id = coordinator.rate_unique_id
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        # The first rates were fetched before this entity had an id to store them under.
-        self.coordinator.store_pending(self.entity_id)
 
     @property
     def native_value(self) -> float | None:
@@ -96,3 +95,31 @@ class EuriborPublishedSensor(EuriborSensor):
         if newest is None:
             return None
         return datetime.strptime(newest.date, "%Y-%m-%d").replace(tzinfo=UTC)
+
+
+class EuriborHistorySensor(EuriborSensor):
+    """The rates of every day read, kept in this sensor's statistics under the day each is for.
+
+    Its state is the day of the newest rate. It has no state class, so the recorder keeps no
+    statistics of its own for it, and a state that is not a number means Home Assistant does
+    not ask for one either.
+    """
+
+    _attr_translation_key = "history"
+    _attr_name = "History"
+    _attr_icon = "mdi:chart-line"
+    _attr_device_class = SensorDeviceClass.DATE
+
+    def __init__(self, coordinator: EuriborCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = coordinator.history_unique_id
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # The first rates were fetched before this entity had an id to store them under.
+        self.coordinator.store_pending(self.entity_id)
+
+    @property
+    def native_value(self) -> date | None:
+        newest = self.coordinator.data.newest if self.coordinator.data else None
+        return date.fromisoformat(newest.date) if newest else None

@@ -1,16 +1,21 @@
 """Keeping the rates in Home Assistant's long term statistics.
 
-The sensor's state is only ever the newest rate. Everything older lives in the
-statistics of that same sensor, which is what a statistics graph card, or
-apexcharts with `statistics: { type: mean, period: day }`, reads. Importing a
-day that is already there rewrites it rather than adding a second one, so
-overlapping requests are safe.
+The rates live in the statistics of each maturity's history sensor, which is what
+a statistics graph card, or apexcharts with `statistics: { type: mean, period: day }`,
+reads. That sensor has no state class and a date for its state, so the recorder
+never compiles statistics of its own for it and nothing but the rates written here
+ends up there. (The rate sensor keeps its state class, and the recorder's
+statistics of it follow what it showed: a rate a day or two old, since the site
+publishes each rate a day late.)
+
+Importing a day that is already there rewrites it rather than adding a second
+one, so overlapping requests are safe.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, tzinfo
 
 from homeassistant.components.recorder import DATA_INSTANCE, get_instance
 from homeassistant.components.recorder.models import (
@@ -22,8 +27,8 @@ from homeassistant.components.recorder.statistics import (
     async_import_statistics,
     get_last_statistics,
 )
-from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from .rates import Rate
 
@@ -38,23 +43,32 @@ def metadata_for(statistic_id: str, name: str) -> StatisticMetaData:
         source=SOURCE,
         statistic_id=statistic_id,
         name=name,
-        unit_of_measurement=PERCENTAGE,
-        # A percentage has no unit to convert to.
+        # No unit, although the rates are percentages. Home Assistant shows statistics in the
+        # unit of the entity's state, and the history sensor's state is a date, which can't
+        # have one; from "%" to no unit it would divide every rate by a hundred.
+        unit_of_measurement=None,
         unit_class=None,
         mean_type=StatisticMeanType.ARITHMETIC,
         has_sum=False,
     )
 
 
-def rows_for(rates: list[Rate]) -> list[StatisticData]:
-    """One row per published day, at midnight in UTC.
+def rows_for(rates: list[Rate], time_zone: tzinfo) -> list[StatisticData]:
+    """One row per published day, at the start of that day in Home Assistant's time zone.
 
-    A rate is one number for the whole day, so it is its own mean, lowest and highest.
+    Home Assistant groups statistics into days by its own time zone, so a row at
+    midnight UTC would fall on the day before anywhere west of UTC. A row has to
+    start on a whole hour in UTC, which in a time zone like India's is half past
+    midnight. A rate is one number for the whole day, so it is its own mean,
+    lowest and highest.
     """
     rows: list[StatisticData] = []
     for rate in rates:
-        moment = datetime.strptime(rate.date, "%Y-%m-%d").replace(tzinfo=UTC)
-        rows.append(StatisticData(start=moment, mean=rate.rate, min=rate.rate, max=rate.rate))
+        midnight = datetime.combine(date.fromisoformat(rate.date), datetime.min.time(), tzinfo=time_zone)
+        moment = midnight.astimezone(UTC)
+        hour = moment.replace(minute=0, second=0, microsecond=0)
+        start = hour if hour == moment else hour + timedelta(hours=1)
+        rows.append(StatisticData(start=start, mean=rate.rate, min=rate.rate, max=rate.rate))
     return rows
 
 
@@ -67,7 +81,7 @@ def store(hass: HomeAssistant, statistic_id: str, name: str, rates: list[Rate]) 
     """Write the rates into the statistics of the sensor they belong to."""
     if not rates or not recording(hass):
         return
-    async_import_statistics(hass, metadata_for(statistic_id, name), rows_for(rates))
+    async_import_statistics(hass, metadata_for(statistic_id, name), rows_for(rates, dt_util.get_default_time_zone()))
     _LOGGER.debug("Wrote %s days of %s into statistics", len(rates), statistic_id)
 
 
@@ -82,9 +96,11 @@ async def newest_stored(hass: HomeAssistant, statistic_id: str) -> date | None:
     if not rows:
         return None
 
+    # Each row starts on its day in Home Assistant's time zone.
+    time_zone = dt_util.get_default_time_zone()
     start = rows[0].get("start")
     if isinstance(start, datetime):
-        return start.astimezone(UTC).date()
+        return start.astimezone(time_zone).date()
     if isinstance(start, (int, float)):
-        return datetime.fromtimestamp(start, UTC).date()
+        return datetime.fromtimestamp(start, time_zone).date()
     return None

@@ -59,6 +59,9 @@
     "sensor": {
       "published": {
         "name": "Julkaistu"
+      },
+      "history": {
+        "name": "Historia"
       }
     }
   }

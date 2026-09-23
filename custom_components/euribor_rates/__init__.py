@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_SEEDED, DOMAIN, SUBENTRY_MATURITY
+from .const import DOMAIN, SUBENTRY_MATURITY
 from .coordinator import EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData
 from .migration import VERSION, async_migrate_to_subentries, async_remove_empty_devices
 
@@ -44,9 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> b
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     async_remove_empty_devices(hass, entry)
     await asyncio.gather(*(coordinator.async_refresh() for coordinator in coordinators.values()))
-    _remember_history_was_read(hass, entry)
 
-    # Added last, so noting the flag above does not reload the entry that is still being set up.
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
     return True
 
@@ -63,21 +61,3 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Entries from before 2.0 are converted in async_setup, which runs first.
     # A newer version than this means Home Assistant was downgraded.
     return entry.version <= VERSION
-
-
-def _remember_history_was_read(hass: HomeAssistant, entry: EuriborConfigEntry) -> None:
-    """Note on each maturity that its whole history has been read.
-
-    Later updates then ask only for the days since the newest rate. This happens after the
-    first read rather than during it, because changing a subentry reloads the entry, and a
-    reload in the middle of a refresh is how this went wrong before.
-    """
-    for coordinator in entry.runtime_data.coordinators.values():
-        if not coordinator.stored_history or coordinator.seeded:
-            continue
-        coordinator.seeded = True
-        hass.config_entries.async_update_subentry(
-            entry,
-            coordinator.subentry,
-            data={**coordinator.subentry.data, CONF_SEEDED: True},
-        )
