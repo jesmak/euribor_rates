@@ -162,9 +162,11 @@ async def test_the_whole_history_is_read_once_and_then_only_the_gap(
     enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
 ) -> None:
     """Only what the integration writes is in the history sensor's statistics, so they
     tell by themselves whether the history has been read."""
+    freezer.move_to(NOW)
     entry = euribor_entry(hass, ("12 months", 365))
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
