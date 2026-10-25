@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import aiohttp
 import pytest
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.euribor_rates.api import EuriborClient
+from custom_components.euribor_rates.const import API_URL
 from custom_components.euribor_rates.exceptions import EuriborError
 from custom_components.euribor_rates.rates import Rate, latest, parse_rates
 
@@ -39,3 +44,22 @@ def test_points_that_make_no_sense_are_left_out() -> None:
 def test_an_answer_that_cannot_be_read(broken: object) -> None:
     with pytest.raises(EuriborError):
         parse_rates(broken)
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (TimeoutError(), "euribor-rates.eu couldn't be reached: TimeoutError"),
+        (
+            aiohttp.ClientConnectionError("Connection refused"),
+            "euribor-rates.eu couldn't be reached: Connection refused",
+        ),
+    ],
+)
+async def test_an_error_without_a_message_is_named(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, error, message
+) -> None:
+    aioclient_mock.get(API_URL, exc=error)
+    with pytest.raises(EuriborError) as raised:
+        await EuriborClient(hass).rates(4, 7)
+    assert str(raised.value) == message

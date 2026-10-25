@@ -40,7 +40,8 @@ class EuriborClient:
                 # The site sends its JSON as text/html.
                 payload = await response.json(content_type=None)
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise EuriborError(f"euribor-rates.eu couldn't be reached: {err}") from err
+            # A timeout's message is empty, and the coordinator logs only the first failure, so the type is the cause.
+            raise EuriborError(f"euribor-rates.eu couldn't be reached: {str(err) or type(err).__name__}") from err
         except ValueError as err:
             raise EuriborError("euribor-rates.eu sent the rates in an unexpected format") from err
 
