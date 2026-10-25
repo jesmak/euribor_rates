@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from types import MappingProxyType
 
+import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
@@ -11,15 +13,15 @@ from homeassistant.components.recorder.statistics import (
     statistics_during_period,
     validate_statistics,
 )
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.components.recorder.common import do_adhoc_statistics
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.euribor_rates.const import API_URL
+from custom_components.euribor_rates.const import API_URL, CONF_DAYS, CONF_MATURITY, SUBENTRY_MATURITY
 from custom_components.euribor_rates.statistics import metadata_for
 
 from .conftest import NEWEST_DATE, NEWEST_RATE, euribor_entry
@@ -278,3 +280,46 @@ async def test_the_names_and_new_entity_ids_follow_home_assistants_language(
     assert hass.states.get("sensor.euribor_12_kuukautta").name == "Euribor 12 kuukautta"
     assert hass.states.get("sensor.euribor_12_kuukautta_julkaistu").name == "Euribor 12 kuukautta Julkaistu"
     assert hass.states.get("sensor.euribor_12_kuukautta_historia").name == "Euribor 12 kuukautta Historia"
+
+
+@pytest.mark.parametrize("change", ["added", "removed"])
+async def test_a_change_saved_while_setting_up_is_applied(
+    recorder_mock,
+    enable_custom_integrations,
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    change: str,
+) -> None:
+    entry = euribor_entry(hass)
+    [twelve_months] = entry.subentries
+    three_months = ConfigSubentry(
+        data=MappingProxyType({CONF_MATURITY: "3 months", CONF_DAYS: 365}),
+        subentry_type=SUBENTRY_MATURITY,
+        title="3 months",
+        unique_id="euribor_3 months",
+    )
+    forward = hass.config_entries.async_forward_entry_setups
+    setups = []
+
+    async def save_while_setting_up(entry: MockConfigEntry, platforms) -> None:
+        setups.append((dict(entry.data), set(entry.subentries)))
+        # Saved as a flow would save it, before setup has added its update listener.
+        if len(setups) == 1:
+            if change == "added":
+                hass.config_entries.async_add_subentry(entry, three_months)
+            else:
+                hass.config_entries.async_remove_subentry(entry, twelve_months)
+        await forward(entry, platforms)
+
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", save_while_setting_up)
+    # Not asserted: the reload may already be under way when the setup returns.
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert len(setups) == 2, "set up again with the change"
+    assert setups[0] != setups[1], "the first setup saw the entry before the change"
+    data, subentries = setups[-1]
+    assert subentries == ({twelve_months, three_months.subentry_id} if change == "added" else set())
+    assert set(entry.runtime_data.coordinators) == subentries

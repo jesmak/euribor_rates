@@ -31,6 +31,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> bool:
+    # A change saved before the update listener is added below has nothing to reload the entry, so it is looked for
+    # then.
+    modified = entry.modified_at
     coordinators = {
         subentry.subentry_id: EuriborCoordinator(hass, entry, subentry)
         for subentry in entry.subentries.values()
@@ -46,6 +49,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> b
     await asyncio.gather(*(coordinator.async_refresh() for coordinator in coordinators.values()))
 
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
+    if entry.modified_at != modified:
+        # Scheduled, as a reload waits for this setup to finish.
+        hass.config_entries.async_schedule_reload(entry.entry_id)
     return True
 
 
