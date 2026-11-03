@@ -4,6 +4,7 @@
   "after_dependencies": [
     "recorder"
   ],
+  "categories": ["finance"],
   "codeowners": [
     "@jesmak"
   ],
