@@ -4,7 +4,7 @@ Home Assistant integration for the Euribor rates published by euribor-rates.eu.
 
 [![GitHub Release][releases-shield]][releases] [![GitHub Release Date][release-date-shield]][releases]
 
-[![HACS][hacs-shield]][hacs] [![Home Assistant][home-assistant-shield]][home-assistant] [![License][license-shield]](LICENSE)
+[![Marketplace][marketplace-shield]][marketplace] [![Home Assistant][home-assistant-shield]][home-assistant] [![License][license-shield]](LICENSE)
 
 ![Project Maintenance][maintenance-shield] [![GitHub Activity][commits-shield]][commits] [![Open bugs][bugs-shield]][bugs] [![Open enhancements][enhancements-shield]][enhancements]
 
@@ -25,10 +25,10 @@ with any card that reads statistics, and the numbers survive a restart and the r
 
 ## Installation
 
-### With HACS
+### With the Marketplace
 
-1. Add this repository to HACS custom repositories with type **Integration**
-2. Search for Euribor rates in HACS and download it
+1. Open Settings › Marketplace, choose Add from link and paste `https://github.com/jesmak/euribor_rates`
+2. Open Euribor rates in the Marketplace and choose Install
 3. Restart Home Assistant
 4. Add the integration in Settings › Devices & services, and choose a maturity
 
@@ -237,8 +237,8 @@ python3.14 -m venv .venv
 [releases-shield]: https://img.shields.io/github/release/jesmak/euribor_rates.svg?style=for-the-badge
 [release-date-shield]: https://img.shields.io/github/release-date/jesmak/euribor_rates?style=for-the-badge
 [releases]: https://github.com/jesmak/euribor_rates/releases
-[hacs-shield]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[hacs]: https://hacs.xyz/docs/faq/custom_repositories/
+[marketplace-shield]: https://img.shields.io/badge/Marketplace-Custom-orange.svg?style=for-the-badge
+[marketplace]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=jesmak&repository=euribor_rates&category=integration
 [home-assistant-shield]: https://img.shields.io/badge/Home%20Assistant-UI%20setup-green.svg?style=for-the-badge
 [home-assistant]: https://www.home-assistant.io/
 [license-shield]: https://img.shields.io/github/license/jesmak/euribor_rates.svg?style=for-the-badge
