@@ -27,9 +27,7 @@ async def test_adding_the_integration_follows_the_first_maturity(
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["step_id"] == "user"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_MATURITY: "12 months", CONF_DAYS: 365}
-    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_MATURITY: "12 months", CONF_DAYS: 365})
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -68,17 +66,13 @@ async def test_following_one_more_maturity(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_MATURITY), context={"source": SOURCE_USER}
-    )
+    result = await hass.config_entries.subentries.async_init((entry.entry_id, SUBENTRY_MATURITY), context={"source": SOURCE_USER})
     assert result["step_id"] == "user"
     offered = result["data_schema"].schema[CONF_MATURITY].config["options"]
     assert "12 months" not in offered, "the maturity already followed is left out"
     assert set(offered) == set(MATURITIES) - {"12 months"}
 
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {CONF_MATURITY: "3 months", CONF_DAYS: 30}
-    )
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {CONF_MATURITY: "3 months", CONF_DAYS: 30})
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -94,9 +88,7 @@ async def test_when_every_maturity_is_already_followed(
 ) -> None:
     entry = euribor_entry(hass, *((maturity, 30) for maturity in MATURITIES))
 
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_MATURITY), context={"source": SOURCE_USER}
-    )
+    result = await hass.config_entries.subentries.async_init((entry.entry_id, SUBENTRY_MATURITY), context={"source": SOURCE_USER})
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "all_configured"

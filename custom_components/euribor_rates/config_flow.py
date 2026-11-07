@@ -51,11 +51,7 @@ def maturity_schema(choices: list[str]) -> vol.Schema:
 
 
 def followed(entry: ConfigEntry) -> set[str]:
-    return {
-        subentry.data[CONF_MATURITY]
-        for subentry in entry.subentries.values()
-        if subentry.subentry_type == SUBENTRY_MATURITY
-    }
+    return {subentry.data[CONF_MATURITY] for subentry in entry.subentries.values() if subentry.subentry_type == SUBENTRY_MATURITY}
 
 
 def subentry_data(maturity: str, days: int) -> ConfigSubentryData:
@@ -111,9 +107,7 @@ class MaturitySubentryFlow(ConfigSubentryFlow):
         if user_input is None:
             return self.async_show_form(
                 step_id="reconfigure",
-                data_schema=self.add_suggested_values_to_schema(
-                    vol.Schema({vol.Required(CONF_DAYS): DAYS_SELECTOR}), dict(subentry.data)
-                ),
+                data_schema=self.add_suggested_values_to_schema(vol.Schema({vol.Required(CONF_DAYS): DAYS_SELECTOR}), dict(subentry.data)),
                 description_placeholders={"maturity": subentry.data[CONF_MATURITY]},
             )
 
