@@ -183,6 +183,8 @@ Euribor rates: [Banco de España](https://www.bde.es/), from its table of money 
 the European Money Markets Institute (EMMI), and the rates are subject to
 [EMMI's terms of use](https://www.emmi-benchmarks.eu/terms-of-use).
 
+This integration is unofficial and not affiliated with or endorsed by Banco de España or EMMI.
+
 ## Development
 
 Requires Python 3.14.
