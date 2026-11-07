@@ -29,8 +29,7 @@ async def async_migrate_to_subentries(hass: HomeAssistant) -> None:
     def converted(entry: ConfigEntry) -> bool:
         """An entry is done when its maturity lives in a subentry rather than in its own data."""
         return (
-            any(subentry.subentry_type == SUBENTRY_MATURITY for subentry in entry.subentries.values())
-            and CONF_MATURITY not in entry.data
+            any(subentry.subentry_type == SUBENTRY_MATURITY for subentry in entry.subentries.values()) and CONF_MATURITY not in entry.data
         )
 
     old_entries = [entry for entry in entries if not converted(entry)]
@@ -105,8 +104,8 @@ def subentry_for(entry: ConfigEntry) -> ConfigSubentry:
 def _attach_loose_entities(hass: HomeAssistant, parent: ConfigEntry) -> None:
     """Put entities left without a subentry back with the maturity they belong to.
 
-    A conversion that ran before this was fixed left the entity on the entry itself,
-    which also left it on the entry's old device.
+    An entry converted by an earlier version can have its sensors on the entry itself rather than on
+    their subentry, which also leaves them on the entry's old device.
     """
     registry = er.async_get(hass)
     by_unique_id = {

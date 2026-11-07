@@ -134,7 +134,7 @@ async def test_migrating_a_second_time_changes_nothing(
 async def test_an_entry_converted_by_an_earlier_broken_run_is_repaired(
     enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
 ) -> None:
-    """A conversion that ran before this was fixed left entities on the entry itself.
+    """An entry converted by an earlier version can have its sensors on the entry itself.
 
     The entry looks converted — version 2, a maturity subentry — but its sensor was never
     attached to that subentry, so it also stayed on the entry's old device.
@@ -160,19 +160,13 @@ async def test_an_entry_converted_by_an_earlier_broken_run_is_repaired(
     entry.add_to_hass(hass)
 
     registry = er.async_get(hass)
-    registry.async_get_or_create(
-        "sensor", DOMAIN, "euribor_12_months", config_entry=entry, suggested_object_id="euribor_12_months"
-    )
+    registry.async_get_or_create("sensor", DOMAIN, "euribor_12_months", config_entry=entry, suggested_object_id="euribor_12_months")
     devices = dr.async_get(hass)
-    devices.async_get_or_create(
-        config_entry_id=entry.entry_id, identifiers={(DOMAIN, entry.entry_id)}, name="Euribor 12 months"
-    )
+    devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, entry.entry_id)}, name="Euribor 12 months")
 
     await start(hass)
 
     [subentry] = entry.subentries.values()
     registered = registry.async_get(RATE_SENSOR)
     assert registered.config_subentry_id == subentry.subentry_id, "the sensor belongs to its maturity"
-    assert devices.async_get_device_by_identifier((DOMAIN, entry.entry_id), entry.entry_id) is None, (
-        "the entry's old device is gone"
-    )
+    assert devices.async_get_device_by_identifier((DOMAIN, entry.entry_id), entry.entry_id) is None, "the entry's old device is gone"

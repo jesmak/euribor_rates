@@ -9,13 +9,13 @@
           "days": "Tuotavan historian pituus päivinä"
         },
         "data_description": {
-          "maturity": "Korkojaksolle luodaan kolme sensoria: korko, sen julkaisupäivä ja historia.",
-          "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
+          "maturity": "Korkojaksolle luodaan kolme sensoria. Ne näyttävät koron, sen julkaisupäivän ja historian.",
+          "days": "Kuinka kauas taaksepäin historia ulottuu, päivinä. Se kirjoitetaan uudelleen aina, kun uusia korkoja julkaistaan."
         }
       }
     },
     "abort": {
-      "single_instance_allowed": "Euribor-korot on jo lisätty; lisää uudet korkojaksot siihen."
+      "single_instance_allowed": "Euribor-korot on jo lisätty. Lisää uudet korkojaksot siihen."
     }
   },
   "config_subentries": {
@@ -33,8 +33,8 @@
             "days": "Tuotavan historian pituus päivinä"
           },
           "data_description": {
-            "maturity": "Korkojaksolle luodaan kolme sensoria: korko, sen julkaisupäivä ja historia.",
-            "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
+            "maturity": "Korkojaksolle luodaan kolme sensoria. Ne näyttävät koron, sen julkaisupäivän ja historian.",
+            "days": "Kuinka kauas taaksepäin historia ulottuu, päivinä. Se kirjoitetaan uudelleen aina, kun uusia korkoja julkaistaan."
           }
         },
         "reconfigure": {
@@ -44,7 +44,7 @@
             "days": "Tuotavan historian pituus päivinä"
           },
           "data_description": {
-            "days": "Luetaan kerran, kun korkojakso lisätään. Sen jälkeen haetaan vain viimeisimmän koron jälkeiset päivät."
+            "days": "Kuinka kauas taaksepäin historia ulottuu, päivinä. Se kirjoitetaan uudelleen aina, kun uusia korkoja julkaistaan."
           }
         }
       },

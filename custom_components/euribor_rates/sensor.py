@@ -40,7 +40,7 @@ class EuriborSensor(CoordinatorEntity[EuriborCoordinator], SensorEntity):
             identifiers={(DOMAIN, coordinator.subentry.subentry_id)},
             # Named in Home Assistant's language, "Euribor 12 months" in English.
             translation_key=f"maturity_{coordinator.maturity.replace(' ', '_')}",
-            manufacturer="euribor-rates.eu",
+            manufacturer="Banco de España",
             entry_type=DeviceEntryType.SERVICE,
         )
 
@@ -112,11 +112,6 @@ class EuriborHistorySensor(EuriborSensor):
     def __init__(self, coordinator: EuriborCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = coordinator.history_unique_id
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        # The first rates were fetched before this entity had an id to store them under.
-        self.coordinator.store_pending(self.entity_id)
 
     @property
     def native_value(self) -> date | None:

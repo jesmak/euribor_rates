@@ -5,53 +5,36 @@ from typing import Final
 
 DOMAIN: Final = "euribor_rates"
 
-ATTRIBUTION: Final = "Data provided by euribor-rates.eu"
+ATTRIBUTION: Final = "Data provided by Banco de España"
 
-API_URL: Final = "https://www.euribor-rates.eu/umbraco/api/euriborpageapi/highchartsdata"
-# The site serves this endpoint to its own charts, and checks that the request looks like one of them.
-HEADERS: Final = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/106.0.5249.62 Safari/537.36"
-    ),
-    "Sec-Fetch-Mode": "cors",
-    "Referer": "https://www.euribor-rates.eu/",
-}
+# Banco de España's file of daily money market rates, Euribor's among them.
+CSV_URL: Final = "https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/ti_1_7.csv"
 
-# The maturities the site publishes, and the number its API gives each one.
-SERIES_BY_MATURITY: Final[dict[str, int]] = {
-    "1 week": 5,
-    "1 month": 1,
-    "3 months": 2,
-    "6 months": 3,
-    "12 months": 4,
+# The maturities Euribor is published for, and the code of each one's series in the file.
+SERIES_BY_MATURITY: Final[dict[str, str]] = {
+    "1 week": "D_DNBAS172",
+    "1 month": "D_DNBAC172",
+    "3 months": "D_DNBAD172",
+    "6 months": "D_DNBAE172",
+    "12 months": "D_DNBAF172",
 }
 MATURITIES: Final = list(SERIES_BY_MATURITY)
 
 # Config entry data. The keys are those of earlier versions, so existing entries keep working.
 CONF_MATURITY: Final = "maturity"
 CONF_DAYS: Final = "days"
-# 2.0 kept a "seeded" flag here too. It is no longer read: the history sensor's statistics
-# hold only what this integration writes, so they tell by themselves whether it has been read.
 
 DEFAULT_DAYS: Final = 365
 MIN_DAYS: Final = 7
-MAX_DAYS: Final = 3650
+# Euribor's series in the file start on 30 December 1998.
+MAX_DAYS: Final = 10950
 
 # Every maturity being followed is a subentry of the one Euribor entry.
 SUBENTRY_MATURITY: Final = "maturity"
 TITLE: Final = "Euribor"
 
-# Each request reaches one day further back than it strictly needs to.
-SAFETY_DAYS: Final = 1
-
-# euribor-rates.eu answers a request with no rates in it with status 400, and it shows
-# each rate a day late. Asking for at least this many days always covers a published
-# rate, even over a weekend next to Easter's holidays.
-MIN_SPAN_DAYS: Final = 10
-
-# Rates are published once a day, on working days.
-UPDATE_INTERVAL: Final = timedelta(hours=3)
+# The file gets the previous working day's rates once a day, at about ten in the morning Madrid time.
+UPDATE_INTERVAL: Final = timedelta(hours=1)
 
 # Sensor attributes.
 ATTR_MATURITY: Final = "maturity"

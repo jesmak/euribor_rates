@@ -1,4 +1,4 @@
-"""Errors from euribor-rates.eu."""
+"""Errors from Banco de España."""
 
 
 class EuriborError(Exception):

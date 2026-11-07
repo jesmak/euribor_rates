@@ -1,53 +1,80 @@
-"""Reading the rates euribor-rates.eu sends.
+"""Reading Banco de España's file of rates.
 
-The site answers with what its own charts read: one series, holding a point per
-published day as a pair of a millisecond timestamp and the rate.
+The file is a CSV of many interest rate series side by side, a column each, with a row per day since 1979. The series'
+codes and descriptions take the first rows, and two rows of sources and notes come last. A day a series has no value
+for is "_". The dates are Spanish ("05 NOV 2026").
 """
 
 from __future__ import annotations
 
+import csv
+import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from typing import Any
 
+from .const import SERIES_BY_MATURITY
 from .exceptions import EuriborError
 
-DATE_FORMAT = "%Y-%m-%d"
+MONTHS = {
+    "ENE": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "ABR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AGO": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DIC": 12,
+}
+DAY = re.compile(r"(\d{2}) ([A-Z]{3}) (\d{4})")
+CODES_ROW = "CÓDIGO DE LA SERIE"
+MISSING = "_"
 
 
 @dataclass(frozen=True)
 class Rate:
-    """One day's rate, the date written the way the sensor's attributes have always had it."""
+    """One day's rate, its date as YYYY-MM-DD, which is also how the sensor's latest_date attribute shows it."""
 
     date: str
     rate: float
 
 
-def parse_rates(payload: Any) -> list[Rate]:
-    """The rates of a series, oldest first."""
-    if not isinstance(payload, list) or not payload:
-        raise EuriborError("euribor-rates.eu sent no series")
+def parse_rates(text: str) -> dict[str, list[Rate]]:
+    """The rates of each Euribor series in the file, by the series' code, oldest first."""
+    rows = list(csv.reader(text.splitlines()))
+    if not rows or rows[0][:1] != [CODES_ROW]:
+        raise EuriborError("Banco de España sent something other than its file of rates")
 
-    series = payload[0]
-    if not isinstance(series, dict) or not isinstance(series.get("Data"), list):
-        raise EuriborError("euribor-rates.eu sent the rates in an unexpected format")
+    columns = {}
+    for code in SERIES_BY_MATURITY.values():
+        if code not in rows[0]:
+            raise EuriborError(f"Banco de España's file has no series {code}")
+        columns[code] = rows[0].index(code)
+    width = max(columns.values()) + 1
 
-    rates = []
-    for point in series["Data"]:
-        if not isinstance(point, list) or len(point) < 2:
+    rates: dict[str, list[Rate]] = {code: [] for code in columns}
+    for row in rows[1:]:
+        day = DAY.fullmatch(row[0]) if row else None
+        if day is None:
             continue
-        moment, rate = point[0], point[1]
-        if moment is None or rate is None:
-            continue
-        try:
-            date = datetime.fromtimestamp(int(moment) / 1000, UTC).strftime(DATE_FORMAT)
-            rates.append(Rate(date, float(rate)))
-        except (TypeError, ValueError, OSError, OverflowError):
-            continue
+        if day[2] not in MONTHS or len(row) < width:
+            raise EuriborError(f"Banco de España's file has a row that can't be read: {row[0]}")
+        date = f"{day[3]}-{MONTHS[day[2]]:02d}-{day[1]}"
+        for code, column in columns.items():
+            if row[column] == MISSING:
+                continue
+            try:
+                rates[code].append(Rate(date, float(row[column])))
+            except ValueError as err:
+                raise EuriborError(f"Banco de España's file has a rate that can't be read: {row[column]} on {date}") from err
 
-    if not rates:
-        raise EuriborError("euribor-rates.eu sent no rates")
-    return sorted(rates, key=lambda entry: entry.date)
+    for code, found in rates.items():
+        if not found:
+            raise EuriborError(f"Banco de España's file has no rates for {code}")
+        found.sort(key=lambda entry: entry.date)
+    return rates
 
 
 def latest(rates: list[Rate]) -> Rate | None:

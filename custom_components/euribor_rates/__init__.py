@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from .api import EuriborClient
 from .const import DOMAIN, SUBENTRY_MATURITY
 from .coordinator import EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData
 from .migration import VERSION, async_migrate_to_subentries, async_remove_empty_devices
@@ -34,8 +35,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> b
     # A change saved before the update listener is added below has nothing to reload the entry, so it is looked for
     # then.
     modified = entry.modified_at
+    # One file holds every maturity, so they share one client.
+    client = EuriborClient(hass)
     coordinators = {
-        subentry.subentry_id: EuriborCoordinator(hass, entry, subentry)
+        subentry.subentry_id: EuriborCoordinator(hass, entry, subentry, client)
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_MATURITY
     }

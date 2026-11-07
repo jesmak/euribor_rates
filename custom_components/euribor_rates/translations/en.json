@@ -9,13 +9,13 @@
           "days": "History to import, in days"
         },
         "data_description": {
-          "maturity": "The maturity gets three sensors: its rate, the day the rate was published, and its history.",
-          "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
+          "maturity": "The maturity gets three sensors. They show its rate, the day the rate was published and its history.",
+          "days": "How far back the history reaches, in days. It is written again whenever new rates come out."
         }
       }
     },
     "abort": {
-      "single_instance_allowed": "Euribor rates has already been added; add further maturities to it."
+      "single_instance_allowed": "Euribor rates has already been added. Add further maturities to it."
     }
   },
   "config_subentries": {
@@ -33,8 +33,8 @@
             "days": "History to import, in days"
           },
           "data_description": {
-            "maturity": "The maturity gets three sensors: its rate, the day the rate was published, and its history.",
-            "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
+            "maturity": "The maturity gets three sensors. They show its rate, the day the rate was published and its history.",
+            "days": "How far back the history reaches, in days. It is written again whenever new rates come out."
           }
         },
         "reconfigure": {
@@ -44,7 +44,7 @@
             "days": "History to import, in days"
           },
           "data_description": {
-            "days": "Read once when the maturity is added. After that only the days since the last rate are asked for."
+            "days": "How far back the history reaches, in days. It is written again whenever new rates come out."
           }
         }
       },

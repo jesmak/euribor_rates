@@ -1,39 +1,59 @@
-"""Shared fixtures: the rates euribor-rates.eu sends, shaped like the real ones."""
+"""Shared fixtures: Banco de España's file of rates, shaped like the real one with made-up rates."""
 
 from __future__ import annotations
 
-import json
-from typing import Any
+from datetime import UTC, datetime
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.const import (
-    API_URL,
     CONF_DAYS,
     CONF_MATURITY,
+    CSV_URL,
     DOMAIN,
     SUBENTRY_MATURITY,
 )
 
 MATURITY = "12 months"
-SERIES = 4
 
-# Four working days, as the site sends them: a millisecond timestamp and the rate.
-POINTS = [
-    [1789171200000, 3.301],
-    [1789257600000, 3.318],
-    [1789344000000, 3.322],
-    [1789430400000, 3.326],
+# A moment for the clock, the day after the newest rate. The history reaches back from it.
+NOW = datetime(2026, 9, 16, 9, 0, tzinfo=UTC)
+
+# As the real file has them: the series' codes and descriptions first, another series before Euribor's, a row per
+# day from before Euribor began, "_" where a series has no value, and the sources and notes last. The columns are
+# €STR, the reference rate, then Euribor's 1 week, 1 month, 3, 6 and 12 months.
+ROWS = [
+    '"CÓDIGO DE LA SERIE","D_DNBAA572","D_DNBAA172","D_DNBAS172","D_DNBAC172","D_DNBAD172","D_DNBAE172","D_DNBAF172"',
+    '"NÚMERO SECUENCIAL","5000001","500002","500003","500004","500005","500006","500007"',
+    '"ALIAS DE LA SERIE","TI_1_7.1","TI_1_7.2","TI_1_7.3","TI_1_7.4","TI_1_7.5","TI_1_7.6","TI_1_7.7"',
+    '"DESCRIPCIÓN DE LA SERIE","Tipos de interés. ¤STR.","Tipos de interés. Euribor.","1 semana","1 mes","3 meses","6 meses","12 meses"',
+    '"DESCRIPCIÓN DE LAS UNIDADES","Porcentaje","Porcentaje","Porcentaje","Porcentaje","Porcentaje","Porcentaje","Porcentaje"',
+    '"FRECUENCIA","LABORABLE","DIARIA","DIARIA","DIARIA","DIARIA","DIARIA","DIARIA"',
+    '"02 ENE 1979","_","9.000","_","_","_","_","_"',
+    '"15 ENE 2025",2.101,"_",2.501,2.601,2.701,2.801,2.901',
+    '"12 SEP 2026",2.111,"_",2.511,2.611,2.711,2.811,3.301',
+    '"13 SEP 2026",2.112,"_","_",2.612,2.712,2.812,3.318',
+    '"14 SEP 2026",2.113,"_",2.513,2.613,2.713,2.813,3.322',
+    '"15 SEP 2026",2.114,"_",2.514,2.614,2.714,2.814,3.326',
+    '"FUENTE","","EXAMPLE SOURCE","EXAMPLE SOURCE","EXAMPLE SOURCE","EXAMPLE SOURCE","EXAMPLE SOURCE","EXAMPLE SOURCE"',
+    '"NOTAS","","TIPO ACT/360","","","","",""',
 ]
 NEWEST_DATE = "2026-09-15"
 NEWEST_RATE = 3.326
+ETAG = '"5f0e-1"'
 
 
-def payload(points: list[list[Any]] | None = None, series: int = SERIES) -> list[dict[str, Any]]:
-    return [{"Id": series, "Data": POINTS if points is None else points}]
+def csv_text(rows: list[str] | None = None) -> str:
+    return "\r\n".join(ROWS if rows is None else rows) + "\r\n"
+
+
+def csv_file(rows: list[str] | None = None) -> bytes:
+    """The file as Banco de España sends it, in Latin-1."""
+    return csv_text(rows).encode("latin-1")
 
 
 # Note: enabling custom integrations is deliberately not autouse. That fixture builds
@@ -42,10 +62,11 @@ def payload(points: list[list[Any]] | None = None, series: int = SERIES) -> list
 
 
 @pytest.fixture
-def euribor(aioclient_mock: AiohttpClientMocker) -> AiohttpClientMocker:
-    """The site, answering with four days of the 12 month rate."""
-    # The site sends its JSON as text/html, which the client has to cope with.
-    aioclient_mock.get(API_URL, text=json.dumps(payload()), headers={"Content-Type": "text/html"})
+def euribor(aioclient_mock: AiohttpClientMocker, freezer: FrozenDateTimeFactory) -> AiohttpClientMocker:
+    """Banco de España, answering with its file. The clock stands at NOW, which the history reaches back from."""
+    freezer.move_to(NOW)
+    # With no charset, as the real file comes.
+    aioclient_mock.get(CSV_URL, content=csv_file(), headers={"Content-Type": "text/csv", "ETag": ETAG})
     return aioclient_mock
 
 

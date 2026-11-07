@@ -21,13 +21,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 from pytest_homeassistant_custom_component.components.recorder.common import do_adhoc_statistics
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.euribor_rates.const import API_URL, CONF_DAYS, CONF_MATURITY, SUBENTRY_MATURITY
+from custom_components.euribor_rates import coordinator as coordinator_module
+from custom_components.euribor_rates.const import CONF_DAYS, CONF_MATURITY, CSV_URL, SUBENTRY_MATURITY
 from custom_components.euribor_rates.statistics import metadata_for
 
-from .conftest import NEWEST_DATE, NEWEST_RATE, euribor_entry
-
-# A moment to pin the clock to, so scheduled refreshes can be made to come due.
-NOW = datetime(2026, 9, 16, 9, 0, tzinfo=UTC)
+from .conftest import NEWEST_DATE, NEWEST_RATE, NOW, ROWS, csv_file, euribor_entry
 
 RATE = "sensor.euribor_12_months"
 PUBLISHED = "sensor.euribor_12_months_published"
@@ -112,26 +110,29 @@ async def test_every_rate_read_is_kept_in_statistics(
     assert await stored(hass, RATE) == [], "nothing is written into the rate sensor's statistics"
 
 
-async def test_reading_the_same_days_again_does_not_double_them(
+async def test_a_corrected_day_is_rewritten_not_added_again(
     recorder_mock,
     enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    freezer.move_to(NOW)
     entry = euribor_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     before = len(await stored(hass, HISTORY))
 
-    requests = len(euribor.mock_calls)
+    euribor.clear_requests()
+    euribor.get(CSV_URL, content=csv_file([row.replace("3.326", "3.330") for row in ROWS]), headers={"ETag": '"5f0e-2"'})
+    freezer.tick(timedelta(hours=1))
     for coordinator in entry.runtime_data.coordinators.values():
         await coordinator.async_refresh()
     await hass.async_block_till_done()
 
-    assert len(euribor.mock_calls) > requests, "the rates have to have been read a second time"
-    assert len(await stored(hass, HISTORY)) == before, "the same days are rewritten, not added again"
+    rows = await stored(hass, HISTORY)
+    assert len(rows) == before, "the same days are rewritten, not added again"
+    assert rows[-1]["mean"] == 3.330
+    assert hass.states.get(RATE).state == "3.33"
 
 
 async def test_the_sensors_are_unavailable_while_the_site_is_down(
@@ -140,14 +141,13 @@ async def test_the_sensors_are_unavailable_while_the_site_is_down(
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    freezer.move_to(NOW)
     entry = euribor_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert hass.states.get(RATE).state == str(NEWEST_RATE)
 
     euribor.clear_requests()
-    euribor.get(API_URL, status=503)
+    euribor.get(CSV_URL, status=503)
     freezer.tick(timedelta(hours=4))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
@@ -159,48 +159,63 @@ async def test_the_sensors_are_unavailable_while_the_site_is_down(
     assert hass.states.get(HISTORY).state == STATE_UNAVAILABLE
 
 
-async def test_the_whole_history_is_read_once_and_then_only_the_gap(
+async def test_an_unchanged_file_writes_nothing_again(
     recorder_mock,
     enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Only what the integration writes is in the history sensor's statistics, so they
-    tell by themselves whether the history has been read."""
-    freezer.move_to(NOW)
-    entry = euribor_entry(hass, ("12 months", 365))
+    entry = euribor_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    _method, url, _data, _headers = euribor.mock_calls[0]
-    span = int(url.query["maxticks"]) - int(url.query["minticks"])
-    assert span >= 365 * 86400000, "the first request asked for the whole year"
-
-    await async_wait_recording_done(hass)
-
-    for coordinator in entry.runtime_data.coordinators.values():
-        await coordinator.async_refresh()
+    written = []
+    store = coordinator_module.store
+    monkeypatch.setattr(coordinator_module, "store", lambda *args: written.append(args) or store(*args))
+    euribor.clear_requests()
+    euribor.get(CSV_URL, status=304)
+    freezer.tick(timedelta(hours=1))
+    async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    _method, url, _data, _headers = euribor.mock_calls[-1]
-    span = int(url.query["maxticks"]) - int(url.query["minticks"])
-    assert span < 30 * 86400000, "later requests only cover the gap"
+    assert len(euribor.mock_calls) == 1, "the scheduled update has to have run"
+    assert written == []
+    assert hass.states.get(RATE).state == str(NEWEST_RATE)
 
 
-async def test_the_first_rates_are_stored_even_though_the_sensor_did_not_exist_yet(
+@pytest.mark.parametrize(("days", "rows"), [(365, 4), (730, 5)])
+async def test_the_history_reaches_back_as_far_as_asked(
+    recorder_mock,
+    enable_custom_integrations,
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    days: int,
+    rows: int,
+) -> None:
+    """The file has a rate from January 2025, more than a year before NOW."""
+    entry = euribor_entry(hass, ("12 months", days))
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert len(await stored(hass, HISTORY)) == rows
+
+
+async def test_the_maturities_share_one_download(
     recorder_mock,
     enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
-    """The very first read happens as the platform is being set up; the rates still land."""
-    entry = euribor_entry(hass)
+    entry = euribor_entry(hass, ("12 months", 365), ("3 months", 365))
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    rows = await stored(hass, HISTORY)
-    assert len(rows) >= 4, "the days that were read are in statistics"
+    assert euribor.call_count == 1
+    assert hass.states.get(RATE).state == str(NEWEST_RATE)
+    assert hass.states.get("sensor.euribor_3_months").state == "2.714"
+    assert len(await stored(hass, "sensor.euribor_3_months_history")) == 4
 
 
 async def test_the_recorder_keeps_nothing_of_its_own_for_the_history_and_raises_no_issue(
@@ -211,7 +226,6 @@ async def test_the_recorder_keeps_nothing_of_its_own_for_the_history_and_raises_
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """Hours go by and the recorder compiles them, as it does every five minutes."""
-    freezer.move_to(NOW)
     entry = euribor_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await async_wait_recording_done(hass)
@@ -240,7 +254,6 @@ async def test_statistics_from_2_0_stay_with_the_rate_sensor_and_the_history_is_
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    freezer.move_to(NOW)
     entry = euribor_entry(hass, ("12 months", 365))
     [subentry] = entry.subentries.values()
     # What 2.0 left behind: a flag saying the history was read, and the rates in the rate sensor's statistics.
@@ -252,9 +265,6 @@ async def test_statistics_from_2_0_stay_with_the_rate_sensor_and_the_history_is_
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    _method, url, _data, _headers = euribor.mock_calls[0]
-    span = int(url.query["maxticks"]) - int(url.query["minticks"])
-    assert span >= 365 * 86400000, "the history sensor starts out with the whole year"
     assert len(await stored(hass, HISTORY)) == 4
     assert [row["mean"] for row in await stored(hass, RATE)] == [3.0], "the old statistics are left as they were"
 
@@ -289,6 +299,7 @@ async def test_a_change_saved_while_setting_up_is_applied(
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     monkeypatch: pytest.MonkeyPatch,
+    freezer: FrozenDateTimeFactory,
     change: str,
 ) -> None:
     entry = euribor_entry(hass)
@@ -306,6 +317,8 @@ async def test_a_change_saved_while_setting_up_is_applied(
         setups.append((dict(entry.data), set(entry.subentries)))
         # Saved as a flow would save it, before setup has added its update listener.
         if len(setups) == 1:
+            # The setup tells a change by the entry's modified_at, which a stopped clock wouldn't move.
+            freezer.tick(timedelta(seconds=1))
             if change == "added":
                 hass.config_entries.async_add_subentry(entry, three_months)
             else:

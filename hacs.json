@@ -1,5 +1,7 @@
 {
   "name": "Euribor rates",
   "render_readme": true,
+  "zip_release": true,
+  "filename": "euribor_rates.zip",
   "homeassistant": "2026.9.3"
 }
