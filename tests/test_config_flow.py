@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.const import (
     CONF_DAYS,
@@ -20,7 +20,6 @@ from .conftest import euribor_entry
 
 async def test_adding_the_integration_follows_the_first_maturity(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -44,7 +43,6 @@ async def test_adding_the_integration_follows_the_first_maturity(
 
 async def test_the_integration_is_added_only_once(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -58,7 +56,6 @@ async def test_the_integration_is_added_only_once(
 
 async def test_following_one_more_maturity(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -82,7 +79,6 @@ async def test_following_one_more_maturity(
 
 async def test_when_every_maturity_is_already_followed(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -96,7 +92,6 @@ async def test_when_every_maturity_is_already_followed(
 
 async def test_changing_how_far_back_a_maturity_reaches(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:

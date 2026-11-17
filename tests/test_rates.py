@@ -8,7 +8,7 @@ import aiohttp
 import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.api import EuriborClient
 from custom_components.euribor_rates.const import CSV_URL

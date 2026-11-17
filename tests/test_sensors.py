@@ -17,9 +17,9 @@ from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
-from pytest_homeassistant_custom_component.components.recorder.common import do_adhoc_statistics
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant.components.recorder.common import do_adhoc_statistics
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates import coordinator as coordinator_module
 from custom_components.euribor_rates.const import CONF_DAYS, CONF_MATURITY, CSV_URL, SUBENTRY_MATURITY
@@ -56,7 +56,6 @@ async def async_wait_recording_done(hass: HomeAssistant) -> None:
 
 async def test_the_sensors_hold_the_newest_rate_and_its_day(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -87,7 +86,6 @@ async def test_the_sensors_hold_the_newest_rate_and_its_day(
 
 async def test_every_rate_read_is_kept_in_statistics(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -112,7 +110,6 @@ async def test_every_rate_read_is_kept_in_statistics(
 
 async def test_a_corrected_day_is_rewritten_not_added_again(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
@@ -136,7 +133,6 @@ async def test_a_corrected_day_is_rewritten_not_added_again(
 
 
 async def test_the_sensors_are_unavailable_while_the_site_is_down(
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
@@ -161,7 +157,6 @@ async def test_the_sensors_are_unavailable_while_the_site_is_down(
 
 async def test_an_unchanged_file_writes_nothing_again(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
@@ -188,7 +183,6 @@ async def test_an_unchanged_file_writes_nothing_again(
 @pytest.mark.parametrize(("days", "rows"), [(365, 4), (730, 5)])
 async def test_the_history_reaches_back_as_far_as_asked(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     days: int,
@@ -204,7 +198,6 @@ async def test_the_history_reaches_back_as_far_as_asked(
 
 async def test_the_maturities_share_one_download(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -220,7 +213,6 @@ async def test_the_maturities_share_one_download(
 
 async def test_the_recorder_keeps_nothing_of_its_own_for_the_history_and_raises_no_issue(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
@@ -249,7 +241,6 @@ async def test_the_recorder_keeps_nothing_of_its_own_for_the_history_and_raises_
 
 async def test_statistics_from_2_0_stay_with_the_rate_sensor_and_the_history_is_read_anew(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     freezer: FrozenDateTimeFactory,
@@ -271,7 +262,6 @@ async def test_statistics_from_2_0_stay_with_the_rate_sensor_and_the_history_is_
 
 async def test_the_names_and_new_entity_ids_follow_home_assistants_language(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
 ) -> None:
@@ -295,7 +285,6 @@ async def test_the_names_and_new_entity_ids_follow_home_assistants_language(
 @pytest.mark.parametrize("change", ["added", "removed"])
 async def test_a_change_saved_while_setting_up_is_applied(
     recorder_mock,
-    enable_custom_integrations,
     hass: HomeAssistant,
     euribor: AiohttpClientMocker,
     monkeypatch: pytest.MonkeyPatch,

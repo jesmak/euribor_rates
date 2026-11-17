@@ -10,8 +10,8 @@ from homeassistant.config_entries import ConfigEntryDisabler
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.const import CONF_DAYS, CONF_MATURITY, DOMAIN
 
@@ -57,9 +57,7 @@ async def start(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
-async def test_the_maturity_moves_into_the_entry_and_keeps_its_sensor(
-    enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
-) -> None:
+async def test_the_maturity_moves_into_the_entry_and_keeps_its_sensor(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
     old_entry(hass, name="Euribor 12 kuukautta")
 
     await start(hass)
@@ -83,9 +81,7 @@ async def test_the_maturity_moves_into_the_entry_and_keeps_its_sensor(
     assert registered.name == "Euribor 12 kuukautta", "a name given by hand is kept"
 
 
-async def test_several_maturities_become_several_subentries(
-    enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
-) -> None:
+async def test_several_maturities_become_several_subentries(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
     old_entry(hass, "12 months", object_id="euribor_12_months")
     old_entry(hass, "3 months", days=30, object_id="euribor_3_months")
 
@@ -102,9 +98,7 @@ async def test_several_maturities_become_several_subentries(
     assert registry.async_get("sensor.euribor_3_months") is not None
 
 
-async def test_a_maturity_that_was_disabled_stays_disabled(
-    enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
-) -> None:
+async def test_a_maturity_that_was_disabled_stays_disabled(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
     old_entry(hass, "12 months", object_id="euribor_12_months")
     old_entry(hass, "3 months", object_id="euribor_3_months", disabled=True)
 
@@ -114,9 +108,7 @@ async def test_a_maturity_that_was_disabled_stays_disabled(
     assert registered.disabled_by is er.RegistryEntryDisabler.USER
 
 
-async def test_migrating_a_second_time_changes_nothing(
-    enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
-) -> None:
+async def test_migrating_a_second_time_changes_nothing(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
     old_entry(hass)
     await start(hass)
     [entry] = hass.config_entries.async_entries(DOMAIN)
@@ -131,9 +123,7 @@ async def test_migrating_a_second_time_changes_nothing(
     assert {subentry.subentry_id for subentry in entry.subentries.values()} == before
 
 
-async def test_an_entry_converted_by_an_earlier_broken_run_is_repaired(
-    enable_custom_integrations, hass: HomeAssistant, euribor: AiohttpClientMocker
-) -> None:
+async def test_an_entry_converted_by_an_earlier_broken_run_is_repaired(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
     """An entry converted by an earlier version can have its sensors on the entry itself.
 
     The entry looks converted — version 2, a maturity subentry — but its sensor was never

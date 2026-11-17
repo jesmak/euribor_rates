@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.const import (
     CONF_DAYS,
@@ -54,11 +54,6 @@ def csv_text(rows: list[str] | None = None) -> str:
 def csv_file(rows: list[str] | None = None) -> bytes:
     """The file as Banco de España sends it, in Latin-1."""
     return csv_text(rows).encode("latin-1")
-
-
-# Note: enabling custom integrations is deliberately not autouse. That fixture builds
-# hass, and the recorder fixtures insist on being set up before hass exists, so each
-# test asks for them in the order it needs: recorder_mock, then enable_custom_integrations.
 
 
 @pytest.fixture
