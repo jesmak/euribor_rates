@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
@@ -42,6 +42,8 @@ class MaturityRates:
     """What the sensors of one maturity show."""
 
     newest: Rate | None
+    # When the bank saved the file the rates were first read from.
+    modified: datetime | None
 
 
 class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
@@ -82,7 +84,7 @@ class EuriborCoordinator(DataUpdateCoordinator[MaturityRates]):
             first = (dt_util.now().date() - timedelta(days=self.seed_days)).isoformat()
             store(self.hass, self.statistic_id(), f"Euribor {self.maturity}", [rate for rate in rates if rate.date >= first])
             self._stored_version = file.version
-        return MaturityRates(latest(rates))
+        return MaturityRates(latest(rates), file.modified)
 
     def statistic_id(self) -> str:
         """The history sensor's entity id, which is what the rates are kept under.

@@ -45,6 +45,9 @@ ROWS = [
 NEWEST_DATE = "2026-09-15"
 NEWEST_RATE = 3.326
 ETAG = '"5f0e-1"'
+# When the file was saved with the newest rate, as its Last-Modified says and as the published sensor shows it.
+MODIFIED = "Wed, 16 Sep 2026 07:58:12 GMT"
+PUBLISHED_AT = "2026-09-16T07:58:12+00:00"
 
 
 def csv_text(rows: list[str] | None = None) -> str:
@@ -61,7 +64,7 @@ def euribor(aioclient_mock: AiohttpClientMocker, freezer: FrozenDateTimeFactory)
     """Banco de España, answering with its file. The clock stands at NOW, which the history reaches back from."""
     freezer.move_to(NOW)
     # With no charset, as the real file comes.
-    aioclient_mock.get(CSV_URL, content=csv_file(), headers={"Content-Type": "text/csv", "ETag": ETAG})
+    aioclient_mock.get(CSV_URL, content=csv_file(), headers={"Content-Type": "text/csv", "ETag": ETAG, "Last-Modified": MODIFIED})
     return aioclient_mock
 
 

@@ -14,10 +14,10 @@ from homeassistant.components.recorder.statistics import (
     validate_statistics,
 )
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
-from homeassistant.const import STATE_UNAVAILABLE
-from homeassistant.core import HomeAssistant
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import issue_registry as ir
-from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed, mock_restore_cache
 from pytest_homeassistant.components.recorder.common import do_adhoc_statistics
 from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
@@ -25,7 +25,7 @@ from custom_components.euribor_rates import coordinator as coordinator_module
 from custom_components.euribor_rates.const import CONF_DAYS, CONF_MATURITY, CSV_URL, SUBENTRY_MATURITY
 from custom_components.euribor_rates.statistics import metadata_for
 
-from .conftest import NEWEST_DATE, NEWEST_RATE, NOW, ROWS, csv_file, euribor_entry
+from .conftest import NEWEST_DATE, NEWEST_RATE, NOW, PUBLISHED_AT, ROWS, csv_file, euribor_entry
 
 RATE = "sensor.euribor_12_months"
 PUBLISHED = "sensor.euribor_12_months_published"
@@ -72,8 +72,9 @@ async def test_the_sensors_hold_the_newest_rate_and_its_day(
     assert "history" not in rate.attributes, "the history lives in statistics now"
 
     published = hass.states.get(PUBLISHED)
-    assert published.state == "2026-09-15T00:00:00+00:00"
+    assert published.state == PUBLISHED_AT, "the file's Last-Modified, not the rate's day"
     assert published.attributes["device_class"] == "timestamp"
+    assert published.attributes["latest_date"] == NEWEST_DATE
 
     history = hass.states.get(HISTORY)
     assert history.state == NEWEST_DATE
@@ -130,6 +131,92 @@ async def test_a_corrected_day_is_rewritten_not_added_again(
     assert len(rows) == before, "the same days are rewritten, not added again"
     assert rows[-1]["mean"] == 3.330
     assert hass.states.get(RATE).state == "3.33"
+
+
+async def test_the_published_time_moves_only_with_a_new_day(
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    entry = euribor_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    async def read(rows: list[str], etag: str, modified: str) -> str:
+        euribor.clear_requests()
+        euribor.get(CSV_URL, content=csv_file(rows), headers={"ETag": etag, "Last-Modified": modified})
+        freezer.tick(timedelta(hours=1))
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
+        return hass.states.get(PUBLISHED).state
+
+    # Saved again with the same rates, as the bank does a few times a day.
+    assert await read(ROWS, '"5f0e-1b"', "Wed, 16 Sep 2026 09:15:00 GMT") == PUBLISHED_AT
+
+    # Saved again with a corrected rate for the same day.
+    corrected = [row.replace("3.326", "3.330") for row in ROWS]
+    assert await read(corrected, '"5f0e-2"', "Wed, 16 Sep 2026 10:24:00 GMT") == PUBLISHED_AT
+    assert hass.states.get(RATE).state == "3.33"
+
+    next_day = [*corrected[:-2], '"16 SEP 2026",2.115,"_",2.515,2.615,2.715,2.815,3.341', *corrected[-2:]]
+    assert await read(next_day, '"5f0e-3"', "Thu, 17 Sep 2026 07:59:03 GMT") == "2026-09-17T07:59:03+00:00"
+    assert hass.states.get(PUBLISHED).attributes["latest_date"] == "2026-09-16"
+
+
+@pytest.mark.parametrize(
+    ("restored_day", "expected"),
+    [
+        # The file has been saved again since the rate came, so its Last-Modified is no longer the publication.
+        (NEWEST_DATE, "2026-09-16T05:02:00+00:00"),
+        ("2026-09-14", PUBLISHED_AT),
+        # What versions before 2.2.1 left behind: the rate's day at midnight, and no day beside it.
+        (None, PUBLISHED_AT),
+    ],
+)
+async def test_the_published_time_survives_a_restart_while_the_day_is_the_same(
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    restored_day: str | None,
+    expected: str,
+) -> None:
+    attributes = {"latest_date": restored_day} if restored_day else {}
+    mock_restore_cache(hass, [State(PUBLISHED, "2026-09-16T05:02:00+00:00", attributes)])
+    entry = euribor_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(PUBLISHED).state == expected
+
+
+async def test_a_restored_day_without_a_time_takes_the_files(
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+) -> None:
+    mock_restore_cache(hass, [State(PUBLISHED, STATE_UNKNOWN, {"latest_date": NEWEST_DATE})])
+    entry = euribor_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(PUBLISHED).state == PUBLISHED_AT
+
+
+@pytest.mark.parametrize("modified", [None, "garbage", "Wed, 16 Sep 2026 07:58:12"])
+async def test_a_last_modified_that_cannot_be_read_leaves_the_time_unknown_and_the_rates_alone(
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    caplog: pytest.LogCaptureFixture,
+    modified: str | None,
+) -> None:
+    euribor.clear_requests()
+    euribor.get(CSV_URL, content=csv_file(), headers={"ETag": '"5f0e-1"'} | ({"Last-Modified": modified} if modified else {}))
+    entry = euribor_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(PUBLISHED).state == STATE_UNKNOWN
+    assert hass.states.get(RATE).state == str(NEWEST_RATE)
+    # A time without a zone is refused when the state is written, which the coordinator logs on every update.
+    assert "Unexpected error" not in caplog.text
 
 
 async def test_the_sensors_are_unavailable_while_the_site_is_down(

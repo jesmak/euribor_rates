@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import ATTR_LATEST_DATE, ATTR_LATEST_RATE, ATTR_MATURITY, ATTRIBUTION, DOMAIN
 from .coordinator import EuriborConfigEntry, EuriborCoordinator
@@ -78,8 +80,13 @@ class EuriborRateSensor(EuriborSensor):
         }
 
 
-class EuriborPublishedSensor(EuriborSensor):
-    """The day the newest rate was published, which says whether the numbers are still fresh."""
+class EuriborPublishedSensor(EuriborSensor, RestoreEntity):
+    """When the newest rate was published, which says whether the numbers are still fresh.
+
+    It is the file's Last-Modified from the read that brought the rate's day. The bank saves the file again during the
+    day with the same rates, so the time is kept until a newer day comes, over a restart too. Where it can't be
+    restored, the first read gives the file's latest save, which is the same day but can be hours later.
+    """
 
     _attr_translation_key = "published"
     _attr_icon = "mdi:calendar-clock"
@@ -88,13 +95,32 @@ class EuriborPublishedSensor(EuriborSensor):
     def __init__(self, coordinator: EuriborCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.rate_unique_id}_published"
+        self._published: datetime | None = None
+        # The day of the rate the time belongs to.
+        self._rate_date: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            self._published = dt_util.parse_datetime(last.state)
+            self._rate_date = last.attributes.get(ATTR_LATEST_DATE)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        data = self.coordinator.data
+        if data and data.newest and (data.newest.date != self._rate_date or self._published is None):
+            self._rate_date = data.newest.date
+            self._published = data.modified
+        super()._handle_coordinator_update()
 
     @property
     def native_value(self) -> datetime | None:
-        newest = self.coordinator.data.newest if self.coordinator.data else None
-        if newest is None:
-            return None
-        return datetime.strptime(newest.date, "%Y-%m-%d").replace(tzinfo=UTC)
+        return self._published
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_LATEST_DATE: self._rate_date}
 
 
 class EuriborHistorySensor(EuriborSensor):

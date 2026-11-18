@@ -13,7 +13,7 @@ The rates in the picture are made up.
 
 A custom component that follows the Euribor rates from [Banco de España](https://www.bde.es/). Add the integration
 once and give it a maturity, and add more maturities to it whenever you like. Each one gets a sensor for its newest
-rate, another for the day that rate was published, and a third that keeps its history.
+rate, another for when that rate was published, and a third that keeps its history.
 
 The rates of earlier days are kept in Home Assistant's own long term statistics, so years of Euribor can be drawn with
 any card that reads statistics, and the numbers survive a restart and the recorder's purging.
@@ -53,16 +53,20 @@ Each maturity has three:
 | Sensor                               | What it holds                                                       |
 | ------------------------------------ | ------------------------------------------------------------------- |
 | `sensor.euribor_12_months`           | The newest published rate, as a percentage                          |
-| `sensor.euribor_12_months_published` | The day that rate was published                                     |
+| `sensor.euribor_12_months_published` | When that rate was published, as a timestamp                        |
 | `sensor.euribor_12_months_history`   | The day of the newest rate, with the rates themselves in statistics |
 
 The names follow Home Assistant's language, and so do the IDs of newly created sensors. In Finnish, for instance, the
 history sensor of a new maturity is `sensor.euribor_12_kuukautta_historia`. The examples here use the English IDs, so
 use the ones your sensors have. Existing sensors keep the IDs they were created with.
 
-The rate sensor also carries `latest_rate`, `latest_date` and `maturity` as attributes. The published sensor is the
-one to build a staleness alarm on. Rates come on working days, so a publication date more than a few days old means
-something is wrong at the source.
+The rate sensor also carries `latest_rate`, `latest_date` and `maturity` as attributes.
+
+The published sensor holds the time Banco de España saved its file with the newest rate, and the day that rate is for
+as its `latest_date` attribute. It is the one to build a staleness alarm on. Rates come on working days, so a time
+more than a few days old means something is wrong at the source. The bank saves the file again during the day without
+new rates, so the time is kept until a newer rate comes. After a new installation, or when Home Assistant was not
+running as the rate came, it is the time of the file's latest save, which can be a few hours after the publication.
 
 ### The history
 

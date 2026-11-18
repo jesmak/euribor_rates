@@ -6,6 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 
 import aiohttp
 from homeassistant.core import HomeAssistant
@@ -30,6 +31,8 @@ class RateFile:
 
     version: int
     rates: dict[str, list[Rate]]
+    # When the bank saved the file these rates were first read from, by its Last-Modified.
+    modified: datetime | None
 
 
 class EuriborClient:
@@ -74,6 +77,7 @@ class EuriborClient:
                     raise EuriborError(f"Banco de España answered with status {response.status}")
                 body = await response.read()
                 etag = response.headers.get("ETag")
+                modified = response.headers.get("Last-Modified")
         except (aiohttp.ClientError, TimeoutError) as err:
             # A timeout's message is empty, and the coordinator logs only the first failure, so the type is the cause.
             raise EuriborError(f"Banco de España couldn't be reached: {str(err) or type(err).__name__}") from err
@@ -83,5 +87,14 @@ class EuriborClient:
         self._etag = etag
         if self._file and rates == self._file.rates:
             return
-        self._file = RateFile((self._file.version + 1) if self._file else 1, rates)
+        self._file = RateFile((self._file.version + 1) if self._file else 1, rates, _http_date(modified))
         _LOGGER.debug("Read Banco de España's file, ETag %s", etag)
+
+
+def _http_date(value: str | None) -> datetime | None:
+    """A header's date, or nothing when it can't be read. One without a zone is no use to a timestamp sensor."""
+    try:
+        date = parsedate_to_datetime(value) if value else None
+    except ValueError:
+        return None
+    return date if date and date.tzinfo else None
