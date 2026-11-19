@@ -1,7 +1,8 @@
-"""Euribor rates: the rate of each maturity being followed, with its history in statistics.
+"""Euribor rates: the rate of each maturity being followed, with its history in statistics, and loans tied to them.
 
-One config entry holds every maturity; each maturity is a subentry with its own
-sensors and its own place in Home Assistant's long term statistics.
+One config entry holds every maturity and loan. Each maturity is a subentry with its own
+sensors and its own place in Home Assistant's long term statistics, and each loan is a
+subentry with sensors of its own.
 """
 
 from __future__ import annotations
@@ -15,8 +16,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .api import EuriborClient
-from .const import DOMAIN, SUBENTRY_MATURITY
-from .coordinator import EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData
+from .const import DOMAIN, SUBENTRY_LOAN, SUBENTRY_MATURITY
+from .coordinator import EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData, LoanCoordinator
 from .migration import VERSION, async_migrate_to_subentries, async_remove_empty_devices
 
 PLATFORMS = [Platform.SENSOR]
@@ -42,14 +43,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: EuriborConfigEntry) -> b
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_MATURITY
     }
-    entry.runtime_data = EuriborRuntimeData(coordinators)
+    loans = {
+        subentry.subentry_id: LoanCoordinator(hass, entry, subentry, client)
+        for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_LOAN
+    }
+    entry.runtime_data = EuriborRuntimeData(coordinators, loans)
 
     # The sensors are added first, so the rates read below have an entity to be stored
-    # under. A maturity that cannot be read becomes unavailable and keeps trying; it does
-    # not stop the others from being set up.
+    # under. A maturity or loan that cannot be read becomes unavailable and keeps trying;
+    # it does not stop the others from being set up.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     async_remove_empty_devices(hass, entry)
-    await asyncio.gather(*(coordinator.async_refresh() for coordinator in coordinators.values()))
+    await asyncio.gather(*(coordinator.async_refresh() for coordinator in [*coordinators.values(), *loans.values()]))
 
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
     if entry.modified_at != modified:

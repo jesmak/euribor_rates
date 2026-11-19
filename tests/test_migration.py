@@ -6,7 +6,7 @@ them history, statistics and the names given to the entities, stay as they were.
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntryDisabler
+from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
@@ -121,6 +121,37 @@ async def test_migrating_a_second_time_changes_nothing(hass: HomeAssistant, euri
 
     [entry] = hass.config_entries.async_entries(DOMAIN)
     assert {subentry.subentry_id for subentry in entry.subentries.values()} == before
+
+
+async def test_an_entry_with_only_a_loan_is_left_as_it_is(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:
+    """Every maturity can be deleted while a loan stays, and the entry is still a converted one."""
+    from homeassistant.config_entries import ConfigSubentryData
+
+    from custom_components.euribor_rates.const import CONF_MARGIN, CONF_RESET_DATE, SUBENTRY_LOAN
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        minor_version=1,
+        title="Euribor",
+        data={},
+        subentries_data=[
+            ConfigSubentryData(
+                data={CONF_MATURITY: "12 months", CONF_MARGIN: 0.5, CONF_RESET_DATE: "2026-09-14"},
+                subentry_type=SUBENTRY_LOAN,
+                title="Home loan",
+                unique_id=None,
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    await start(hass)
+
+    assert entry.state is ConfigEntryState.LOADED
+    [subentry] = entry.subentries.values()
+    assert subentry.subentry_type == SUBENTRY_LOAN
+    assert hass.states.get("sensor.home_loan").state == "3.822"
 
 
 async def test_an_entry_converted_by_an_earlier_broken_run_is_repaired(hass: HomeAssistant, euribor: AiohttpClientMocker) -> None:

@@ -18,6 +18,10 @@ rate, another for when that rate was published, and a third that keeps its histo
 The rates of earlier days are kept in Home Assistant's own long term statistics, so years of Euribor can be drawn with
 any card that reads statistics, and the numbers survive a restart and the recorder's purging.
 
+A loan tied to Euribor can be added too. Give it the maturity it follows, the bank's margin and one of its reset days,
+and it gets sensors for its interest rate, the Euribor that rate is locked to, the rate it would have at the newest
+Euribor and the day it is next reset. No helpers or automations are needed to keep them up to date.
+
 ## Installation
 
 ### With the Marketplace
@@ -46,6 +50,29 @@ from the integration page with **Add maturity**, which leaves out the ones alrea
 | Maturity          | enum   | `1 week`, `1 month`, `3 months`, `6 months` or `12 months` |         |
 | History to import | number | How far back the history reaches, in days, up to 10950     | 365     |
 
+### Loans
+
+Loans are added from the integration page with **Add loan**, as many as you like, and **Reconfigure** on a loan changes
+any of its settings. A loan doesn't need its maturity to be followed as well.
+
+| Name           | Type   | Description                                                                | Default     |
+| -------------- | ------ | -------------------------------------------------------------------------- | ----------- |
+| Name           | string | The name of the loan's device, which its sensors' names start with         |             |
+| Reference rate | enum   | `1 month`, `3 months`, `6 months` or `12 months`                           | `12 months` |
+| Margin         | number | The bank's margin, in percent, added to Euribor                            |             |
+| Reset day      | date   | Any day the loan's rate is reset, past or future, to count the others from |             |
+
+The rate is reset once per maturity, so a 12 month loan once a year, a 6 month one twice and a 3 month one four times.
+Each reset falls on the same day of the month as the reset day given, or on the month's last day when the month is
+shorter. A loan reset on 31 January is reset on 28 February and then on 31 March again, when it follows the 1 month
+Euribor.
+
+Each reset locks the Euribor of the reset day. A reset on a Saturday or a Sunday locks Friday's rate, as Euribor has
+none on weekends, and one on a holiday locks the last rate before it. A rate is published on the next working day, so
+until the reset day's rate is out, the loan keeps the rate of the reset before. After a holiday, that lasts until the
+rate of the day after it is out, as only then is it known that the holiday had no rate. Banks may lock a different
+day's rate, such as one two working days before the reset, so check against your loan's terms.
+
 ## Sensors
 
 Each maturity has three:
@@ -67,6 +94,23 @@ as its `latest_date` attribute. It is the one to build a staleness alarm on. Rat
 more than a few days old means something is wrong at the source. The bank saves the file again during the day without
 new rates, so the time is kept until a newer rate comes. After a new installation, or when Home Assistant was not
 running as the rate came, it is the time of the file's latest save, which can be a few hours after the publication.
+
+### Loans
+
+Each loan has a device of its own, named as the loan, with four sensors. For a loan called Home loan:
+
+| Sensor                                        | What it holds                                               |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `sensor.home_loan`                            | The loan's interest rate, the locked Euribor and the margin |
+| `sensor.home_loan_reference_rate`             | The Euribor the rate is locked to                           |
+| `sensor.home_loan_rate_at_the_newest_euribor` | The rate the loan would have at the newest Euribor          |
+| `sensor.home_loan_next_reset`                 | The day the rate is next reset, as a date                   |
+
+The interest rate sensor carries `margin`, `reset_date` and `pending` as attributes, and the reference rate sensor
+`rate_date`, `reset_date` and `pending`. `reset_date` is the reset that locked the rate and `rate_date` the day of
+the Euribor it locked. `pending` is true while a newer reset's rate isn't out yet, and the rates are still the previous
+reset's. The rate at the newest Euribor carries that Euribor's day as `latest_date`. Like the maturities' sensors,
+their names and the IDs of new sensors follow Home Assistant's language.
 
 ### The history
 
@@ -200,19 +244,20 @@ python3.14 -m venv .venv
 .venv/bin/ruff check .
 ```
 
-| Path                           | What it contains                                       |
-| ------------------------------ | ------------------------------------------------------ |
-| `__init__.py`                  | Setup                                                  |
-| `migration.py`                 | Turning the entries of 1.x into one                    |
-| `config_flow.py`               | Adding the integration and its maturities              |
-| `const.py`                     | The source's address, the series and the limits        |
-| `api.py`                       | Fetching Banco de España's file for every maturity     |
-| `rates.py`                     | Reading the rates in it                                |
-| `exceptions.py`                | The error for a source that fails                      |
-| `statistics.py`                | Keeping the rates in long term statistics              |
-| `coordinator.py`               | Fetching and storing, every hour                       |
-| `sensor.py`                    | The rate, its publication day and the history          |
-| `translations/<language>.json` | Home Assistant UI texts                                |
+| Path                           | What it contains                                     |
+| ------------------------------ | ---------------------------------------------------- |
+| `__init__.py`                  | Setup                                                |
+| `migration.py`                 | Turning the entries of 1.x into one                  |
+| `config_flow.py`               | Adding the integration, its maturities and its loans |
+| `const.py`                     | The source's address, the series and the limits      |
+| `api.py`                       | Fetching Banco de España's file for every maturity   |
+| `rates.py`                     | Reading the rates in it                              |
+| `loans.py`                     | A loan's reset days and the rate each one locks      |
+| `exceptions.py`                | The error for a source that fails                    |
+| `statistics.py`                | Keeping the rates in long term statistics            |
+| `coordinator.py`               | Fetching and storing, every hour                     |
+| `sensor.py`                    | The maturities' and the loans' sensors               |
+| `translations/<language>.json` | Home Assistant UI texts                              |
 
 The README's screenshots come from made-up data in `docs/screenshots.json`.
 

@@ -53,6 +53,52 @@
         "all_configured": "Every maturity is already being followed.",
         "reconfigure_successful": "Saved."
       }
+    },
+    "loan": {
+      "initiate_flow": {
+        "user": "Add loan"
+      },
+      "entry_type": "Loan",
+      "step": {
+        "user": {
+          "title": "Loan",
+          "description": "A loan tied to Euribor. When a new interest period begins, the rate is set to the Euribor of the reset day.",
+          "data": {
+            "name": "Name",
+            "maturity": "Reference rate",
+            "margin": "Margin",
+            "reset_date": "Reset day"
+          },
+          "data_description": {
+            "name": "The loan gets a device of this name, with sensors for its rate, the Euribor it is locked to, the rate at the newest Euribor and the next reset.",
+            "maturity": "The Euribor the loan follows. A 12 month loan is reset once a year, a 3 month one four times a year, and so on.",
+            "margin": "The bank's margin, added to Euribor.",
+            "reset_date": "Any day the rate is reset, past or future."
+          }
+        },
+        "reconfigure": {
+          "title": "Loan",
+          "description": "A loan tied to Euribor. When a new interest period begins, the rate is set to the Euribor of the reset day.",
+          "data": {
+            "name": "Name",
+            "maturity": "Reference rate",
+            "margin": "Margin",
+            "reset_date": "Reset day"
+          },
+          "data_description": {
+            "name": "The loan's device is named this.",
+            "maturity": "The Euribor the loan follows. A 12 month loan is reset once a year, a 3 month one four times a year, and so on.",
+            "margin": "The bank's margin, added to Euribor.",
+            "reset_date": "Any day the rate is reset, past or future."
+          }
+        }
+      },
+      "error": {
+        "name_missing": "Give the loan a name."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved."
+      }
     }
   },
   "entity": {
@@ -62,6 +108,15 @@
       },
       "history": {
         "name": "History"
+      },
+      "reference_rate": {
+        "name": "Reference rate"
+      },
+      "rate_today": {
+        "name": "Rate at the newest Euribor"
+      },
+      "next_reset": {
+        "name": "Next reset"
       }
     }
   },

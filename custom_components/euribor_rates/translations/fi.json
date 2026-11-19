@@ -53,6 +53,52 @@
         "all_configured": "Kaikkia korkojaksoja seurataan jo.",
         "reconfigure_successful": "Tallennettu."
       }
+    },
+    "loan": {
+      "initiate_flow": {
+        "user": "Lisää laina"
+      },
+      "entry_type": "Laina",
+      "step": {
+        "user": {
+          "title": "Laina",
+          "description": "Laina, joka on sidottu euriboriin. Korko asetetaan korkojakson vaihtuessa tarkistuspäivän euriboriin.",
+          "data": {
+            "name": "Nimi",
+            "maturity": "Viitekorko",
+            "margin": "Marginaali",
+            "reset_date": "Tarkistuspäivä"
+          },
+          "data_description": {
+            "name": "Lainalle luodaan tämänniminen laite. Sen sensorit näyttävät lainan koron, euriborin johon se on sidottu, koron uusimmalla euriborilla ja seuraavan tarkistuspäivän.",
+            "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
+            "margin": "Pankin marginaali, joka lisätään euriboriin.",
+            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva."
+          }
+        },
+        "reconfigure": {
+          "title": "Laina",
+          "description": "Laina, joka on sidottu euriboriin. Korko asetetaan korkojakson vaihtuessa tarkistuspäivän euriboriin.",
+          "data": {
+            "name": "Nimi",
+            "maturity": "Viitekorko",
+            "margin": "Marginaali",
+            "reset_date": "Tarkistuspäivä"
+          },
+          "data_description": {
+            "name": "Lainan laitteen nimi.",
+            "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
+            "margin": "Pankin marginaali, joka lisätään euriboriin.",
+            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva."
+          }
+        }
+      },
+      "error": {
+        "name_missing": "Anna lainalle nimi."
+      },
+      "abort": {
+        "reconfigure_successful": "Tallennettu."
+      }
     }
   },
   "entity": {
@@ -62,6 +108,15 @@
       },
       "history": {
         "name": "Historia"
+      },
+      "reference_rate": {
+        "name": "Viitekorko"
+      },
+      "rate_today": {
+        "name": "Korko uusimmalla euriborilla"
+      },
+      "next_reset": {
+        "name": "Seuraava koron tarkistus"
       }
     }
   },

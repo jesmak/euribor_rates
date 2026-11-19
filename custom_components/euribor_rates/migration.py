@@ -27,10 +27,11 @@ async def async_migrate_to_subentries(hass: HomeAssistant) -> None:
     entries = sorted(hass.config_entries.async_entries(DOMAIN), key=lambda entry: entry.disabled_by is not None)
 
     def converted(entry: ConfigEntry) -> bool:
-        """An entry is done when its maturity lives in a subentry rather than in its own data."""
-        return (
-            any(subentry.subentry_type == SUBENTRY_MATURITY for subentry in entry.subentries.values()) and CONF_MATURITY not in entry.data
-        )
+        """An entry is done when its own data no longer holds a maturity, as every entry of 1.x does.
+
+        Its subentries say nothing, since a converted entry may have only loans, or none at all.
+        """
+        return CONF_MATURITY not in entry.data
 
     old_entries = [entry for entry in entries if not converted(entry)]
 
