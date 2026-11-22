@@ -271,7 +271,7 @@ export class EuriborCard extends LitElement {
         const ecb = [...(ecbBefore ? [ecbBefore] : []), ...ecbAll.filter((point) => point.day >= start)];
         const chartLoans: ChartLoan[] = loans.map((loan, index) => ({
             color: LOAN_COLORS[index % LOAN_COLORS.length],
-            periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today) : [],
+            periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today, loan.previous) : [],
         }));
         return {
             width: this.size.width,

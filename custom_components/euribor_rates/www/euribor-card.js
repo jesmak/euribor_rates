@@ -683,14 +683,15 @@ function lockedOn(series, reset, lockDays) {
   }
   return void 0;
 }
-function lockPeriods(series, enteredReset, months, lockDays, start, today) {
+function lockPeriods(series, enteredReset, months, lockDays, start, today, known) {
   const monthOf = (day) => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7));
   let count = Math.floor((monthOf(start) - monthOf(enteredReset)) / months) - 2;
   const first = series[0]?.day;
   const periods = [];
   for (let reset = addMonths(enteredReset, count * months); reset <= today; reset = addMonths(enteredReset, ++count * months)) {
     const until = addMonths(enteredReset, (count + 1) * months);
-    const locked = first && reset >= first ? lockedOn(series, reset, lockDays) : void 0;
+    const fromSeries = first && reset >= first ? lockedOn(series, reset, lockDays) : void 0;
+    const locked = fromSeries ?? (known?.reset === reset ? known.locked : void 0);
     if (locked && until > start) {
       periods.push({ reset, until, locked });
     }
@@ -944,6 +945,7 @@ function loans(hass, maturity, siblings) {
       maturity,
       lockDays: Number(attributes.lock_days ?? 0),
       enteredReset: text(attributes.entered_reset),
+      previous: previous(attributes),
       pending: attributes.pending === true,
       locked: number(reference?.state),
       rateToday: number(own.rate_today ? hass.states[own.rate_today]?.state : void 0),
@@ -952,6 +954,12 @@ function loans(hass, maturity, siblings) {
     });
   }
   return result.sort((a3, b3) => a3.name.localeCompare(b3.name));
+}
+function previous(attributes) {
+  const reset = text(attributes.previous_reset);
+  const day = text(attributes.previous_rate_date);
+  const value = attributes.previous_rate;
+  return reset && day && typeof value === "number" ? { reset, locked: { day, value } } : void 0;
 }
 function platformOf(hass, entity) {
   return hass.entities?.[entity]?.platform;
@@ -1362,7 +1370,7 @@ var EuriborCard = class extends i4 {
     const ecb2 = [...ecbBefore ? [ecbBefore] : [], ...ecbAll.filter((point) => point.day >= start)];
     const chartLoans = loans2.map((loan, index) => ({
       color: LOAN_COLORS[index % LOAN_COLORS.length],
-      periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today) : []
+      periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today, loan.previous) : []
     }));
     return {
       width: this.size.width,

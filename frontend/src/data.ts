@@ -4,6 +4,7 @@
  * and which follow Home Assistant's language.
  */
 import type { HassEntity, HomeAssistant } from "./hass";
+import type { Point } from "./series";
 
 export const PLATFORM = "euribor_rates";
 
@@ -19,6 +20,8 @@ export interface Loan {
     lockDays: number;
     /** The reset day entered for the loan, which every reset is counted from. */
     enteredReset?: string;
+    /** The reset before the one that locked the current rate, and the Euribor it locked, from the integration. */
+    previous?: { reset: string; locked: Point };
     pending: boolean;
     locked?: number;
     rateToday?: number;
@@ -99,6 +102,7 @@ function loans(hass: HomeAssistant, maturity: string, siblings: (id: string) => 
             maturity,
             lockDays: Number(attributes.lock_days ?? 0),
             enteredReset: text(attributes.entered_reset),
+            previous: previous(attributes),
             pending: attributes.pending === true,
             locked: number(reference?.state),
             rateToday: number(own.rate_today ? hass.states[own.rate_today]?.state : undefined),
@@ -107,6 +111,13 @@ function loans(hass: HomeAssistant, maturity: string, siblings: (id: string) => 
         });
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function previous(attributes: Record<string, unknown>): Loan["previous"] {
+    const reset = text(attributes.previous_reset);
+    const day = text(attributes.previous_rate_date);
+    const value = attributes.previous_rate;
+    return reset && day && typeof value === "number" ? { reset, locked: { day, value } } : undefined;
 }
 
 function platformOf(hass: HomeAssistant, entity: string): string | undefined {

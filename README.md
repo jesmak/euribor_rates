@@ -128,9 +128,11 @@ Each loan has a device of its own, named as the loan, with five sensors. For a l
 | `sensor.home_loan_change_at_the_newest_euribor` | The newest Euribor less the locked one                      |
 | `sensor.home_loan_next_reset`                   | The day the rate is next reset, as a date                   |
 
-The interest rate sensor carries `margin`, `maturity`, `lock_days`, `entered_reset`, `reset_date` and `pending` as
-attributes, and the reference rate sensor `rate_date`, `reset_date` and `pending`. `entered_reset` is the reset day
-given in the settings, `reset_date` the reset that locked the rate and `rate_date` the day of the Euribor it locked.
+The interest rate sensor carries `margin`, `maturity`, `lock_days`, `entered_reset`, `reset_date`, `pending`,
+`previous_reset`, `previous_rate` and `previous_rate_date` as attributes, and the reference rate sensor `rate_date`,
+`reset_date` and `pending`. `entered_reset` is the reset day given in the settings, `reset_date` the reset that locked
+the rate and `rate_date` the day of the Euribor it locked. The `previous_` attributes are the same for the reset before,
+so a chart can show it even when the history doesn't reach back that far.
 `pending` is true while a newer reset's rate isn't out yet, and the rates are still the previous reset's. The rate at
 the newest Euribor carries that Euribor's day as `latest_date`. Like the maturities' sensors, their names and the IDs
 of new sensors follow Home Assistant's language.

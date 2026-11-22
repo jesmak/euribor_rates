@@ -137,7 +137,8 @@ export interface LockPeriod {
 /**
  * Every lock period that reaches into the days from `start` on, up to the reset on or before `today`. Each reset is
  * counted from the one entered for the loan, as the integration counts them, so a loan reset on the 31st returns to the
- * 31st after a shorter month. A reset whose rate the statistics don't have, being before them or not out yet, has none.
+ * 31st after a shorter month. A reset whose rate the statistics don't have, being before them or not out yet, has none,
+ * unless it is the `known` one, a reset whose locked rate the integration gave.
  */
 export function lockPeriods(
     series: Point[],
@@ -146,6 +147,7 @@ export function lockPeriods(
     lockDays: number,
     start: string,
     today: string,
+    known?: { reset: string; locked: Point },
 ): LockPeriod[] {
     const monthOf = (day: string): number => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7));
     // From a count of resets safely before the start's previous reset, as a period begun then reaches into the range.
@@ -154,7 +156,8 @@ export function lockPeriods(
     const periods: LockPeriod[] = [];
     for (let reset = addMonths(enteredReset, count * months); reset <= today; reset = addMonths(enteredReset, ++count * months)) {
         const until = addMonths(enteredReset, (count + 1) * months);
-        const locked = first && reset >= first ? lockedOn(series, reset, lockDays) : undefined;
+        const fromSeries = first && reset >= first ? lockedOn(series, reset, lockDays) : undefined;
+        const locked = fromSeries ?? (known?.reset === reset ? known.locked : undefined);
         if (locked && until > start) {
             periods.push({ reset, until, locked });
         }

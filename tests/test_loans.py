@@ -127,12 +127,16 @@ def test_until_the_reset_s_rate_is_out_the_loan_keeps_the_previous_one() -> None
     assert pending.reference == Rate("2025-12-18", 2.100)
     assert pending.next_reset == date(2027, 12, 18)
     assert pending.newest == Rate("2026-12-17", 2.410)
+    assert pending.previous_reset == date(2024, 12, 18), "the reset before the one the rate is still locked by"
+    assert pending.previous is None, "the file has no rate that far back"
 
     locked_now = loan_rates([*rates, RATES[1]], date(2026, 12, 18), 12, date(2026, 12, 19))
 
     assert not locked_now.pending
     assert locked_now.reset == date(2026, 12, 18)
     assert locked_now.reference == Rate("2026-12-18", 2.420)
+    assert locked_now.previous_reset == date(2025, 12, 18)
+    assert locked_now.previous == Rate("2025-12-18", 2.100)
 
 
 def loan(reset_date: str = "2026-09-14") -> ConfigSubentry:
@@ -162,6 +166,9 @@ async def test_a_loan_s_sensors(
     assert rate.attributes["maturity"] == "12 months"
     assert rate.attributes["lock_days"] == 0
     assert rate.attributes["entered_reset"] == "2026-09-14"
+    assert rate.attributes["previous_reset"] == "2025-09-14"
+    assert rate.attributes["previous_rate"] == 2.901, "the made-up file's last rate before 14 September 2025"
+    assert rate.attributes["previous_rate_date"] == "2025-01-15"
     assert rate.attributes["reset_date"] == "2026-09-14"
     assert rate.attributes["pending"] is False
 

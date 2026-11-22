@@ -128,6 +128,18 @@ describe("lock periods", () => {
         ]);
     });
 
+    it("take a reset before the statistics from the integration, when it gives that reset's rate", () => {
+        // The statistics begin after the reset of 5 October 2025, which the loan's sensor says locked 2.224.
+        const known = { reset: "2025-10-05", locked: year[0] };
+        expect(lockPeriods(year.slice(1), "2025-10-05", 12, 0, "2025-11-22", "2026-11-22", known)).toEqual([
+            { reset: "2025-10-05", until: "2026-10-05", locked: year[0] },
+            { reset: "2026-10-05", until: "2027-10-05", locked: year[2] },
+        ]);
+        // A rate given for another reset is left alone.
+        const other = { ...known, reset: "2024-10-05" };
+        expect(lockPeriods(year.slice(1), "2025-10-05", 12, 0, "2025-11-22", "2026-11-22", other)).toHaveLength(1);
+    });
+
     it("leave out a reset whose rate isn't out yet", () => {
         const waiting = year.slice(0, 2);
         expect(lockPeriods(waiting, "2025-10-05", 12, 0, "2025-09-22", "2026-10-05")).toEqual([

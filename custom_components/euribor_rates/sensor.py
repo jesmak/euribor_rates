@@ -23,6 +23,9 @@ from .const import (
     ATTR_MARGIN,
     ATTR_MATURITY,
     ATTR_PENDING,
+    ATTR_PREVIOUS_RATE,
+    ATTR_PREVIOUS_RATE_DATE,
+    ATTR_PREVIOUS_RESET,
     ATTR_RATE_DATE,
     ATTR_RESET_DATE,
     ATTRIBUTION,
@@ -270,13 +273,19 @@ class LoanRateSensor(LoanPercentSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         # The maturity, the lock days and the reset day as entered let a card find the loans of a maturity and count
-        # their resets as the integration does, from the day entered, so that a 31st returns after a shorter month.
+        # their resets as the integration does, from the day entered, so that a 31st returns after a shorter month. The
+        # previous reset's rate is for a chart whose statistics don't reach back to it.
+        data = self.coordinator.data
+        previous = data.previous if data else None
         return {
             ATTR_MARGIN: self.coordinator.margin,
             ATTR_MATURITY: self.coordinator.maturity,
             ATTR_LOCK_DAYS: self.coordinator.lock_days,
             ATTR_ENTERED_RESET: self.coordinator.reset_day.isoformat(),
             **self.lock(),
+            ATTR_PREVIOUS_RESET: data.previous_reset.isoformat() if data else None,
+            ATTR_PREVIOUS_RATE: previous.rate if previous else None,
+            ATTR_PREVIOUS_RATE_DATE: previous.date if previous else None,
         }
 
 

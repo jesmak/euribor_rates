@@ -28,6 +28,10 @@ class LoanRates:
     pending: bool
     next_reset: date
     newest: Rate | None
+    # The reset before the one that locked the reference, and the Euribor it locked, for a chart of the past whose
+    # statistics may not reach back that far.
+    previous_reset: date
+    previous: Rate | None
 
 
 def add_months(day: date, months: int) -> date:
@@ -73,6 +77,10 @@ def locked(rates: list[Rate], reset: date, lock_days: int = 0) -> Rate | None:
 def loan_rates(rates: list[Rate], reset_day: date, months: int, today: date, lock_days: int = 0) -> LoanRates:
     before, latest_reset, next_reset = resets_around(reset_day, months, today)
     reference = locked(rates, latest_reset, lock_days)
-    if reference is not None:
-        return LoanRates(reference, latest_reset, False, next_reset, latest(rates))
-    return LoanRates(locked(rates, before, lock_days), before, True, next_reset, latest(rates))
+    pending = reference is None
+    reset = before if pending else latest_reset
+    if pending:
+        reference = locked(rates, before, lock_days)
+    _, previous_reset, _ = resets_around(reset_day, months, reset - timedelta(days=1))
+    previous = locked(rates, previous_reset, lock_days)
+    return LoanRates(reference, reset, pending, next_reset, latest(rates), previous_reset, previous)
