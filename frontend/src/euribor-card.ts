@@ -73,6 +73,9 @@ export class EuriborCard extends LitElement {
         if (!config) {
             throw new Error("Invalid configuration");
         }
+        if (config.range !== this.config?.range) {
+            this.range = undefined;
+        }
         this.config = { ...config };
     }
 
@@ -217,7 +220,7 @@ export class EuriborCard extends LitElement {
 
     private ranges(): TemplateResult | typeof nothing {
         const available = this.availableRanges();
-        if (available.length < 2) {
+        if (available.length < 2 || this.config?.show_ranges === false) {
             return nothing;
         }
         const current = this.currentRange();
@@ -412,7 +415,7 @@ export class EuriborCard extends LitElement {
     }
 
     private sources(): Sources | undefined {
-        return this.hass && this.config?.entity ? sources(this.hass, this.config.entity) : undefined;
+        return this.hass && this.config?.entity ? sources(this.hass, this.config.entity, this.config.loans) : undefined;
     }
 
     private availableRanges(): RangeKey[] {
@@ -421,10 +424,11 @@ export class EuriborCard extends LitElement {
 
     private currentRange(): RangeKey {
         const available = this.availableRanges();
-        if (this.range && available.includes(this.range)) {
+        if (this.range && available.includes(this.range) && this.config?.show_ranges !== false) {
             return this.range;
         }
-        return available.includes("1y") ? "1y" : "all";
+        const preset = this.config?.range ?? "1y";
+        return available.includes(preset) ? preset : "all";
     }
 
     private loanMarks() {

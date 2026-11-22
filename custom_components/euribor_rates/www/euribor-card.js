@@ -868,7 +868,7 @@ function rateSensors(hass) {
     (state) => !!state && platformOf(hass, state.entity_id) === PLATFORM && "latest_rate" in state.attributes
   ).map((state) => state.entity_id).sort();
 }
-function sources(hass, entity) {
+function sources(hass, entity, chosen) {
   const rate = hass.states[entity];
   const maturity = rate?.attributes.maturity;
   if (!rate || typeof maturity !== "string") {
@@ -893,7 +893,7 @@ function sources(hass, entity) {
     maturity,
     history: own.history,
     published: own.published ? hass.states[own.published] : void 0,
-    loans: loans(hass, maturity, siblings),
+    loans: pick(loans(hass, maturity, siblings), chosen),
     ecbRate,
     ecbHistory: ecbRate ? siblings(ecbRate.entity_id).history : void 0
   };
@@ -922,6 +922,12 @@ function loans(hass, maturity, siblings) {
     });
   }
   return result.sort((a3, b3) => a3.name.localeCompare(b3.name));
+}
+function pick(all, chosen) {
+  if (!Array.isArray(chosen)) {
+    return all;
+  }
+  return chosen.map((id) => all.find((loan) => loan.entity === id)).filter((loan) => !!loan);
 }
 function platformOf(hass, entity) {
   return hass.entities?.[entity]?.platform;
@@ -970,10 +976,19 @@ var en_default = {
   },
   editor: {
     entity: "Maturity",
+    loan_mode: "Loans",
+    loan_mode_helper: "Only loans that follow the maturity are available.",
+    loans_all: "All",
+    loans_chosen: "Chosen",
+    loans: "Loans shown",
+    loans_helper: "In the order they show on the card.",
     loans_on_chart: "Loans on the chart",
     loans_on_chart_helper: "The Euribor each reset locked, as a marker or as a line to the next reset.",
     ecb: "ECB rate",
     ecb_helper: "Shown once the ECB's rate is added to the integration.",
+    show_ranges: "Range buttons",
+    range: "Range",
+    range_helper: "The range shown by default.",
     markers: "Markers",
     lines: "Lock periods as lines",
     steps: "Steps",
@@ -1018,10 +1033,19 @@ var fi_default = {
   },
   editor: {
     entity: "Korkojakso",
+    loan_mode: "Lainat",
+    loan_mode_helper: "Vain korkojaksoa seuraavat lainat ovat k\xE4ytett\xE4viss\xE4.",
+    loans_all: "Kaikki",
+    loans_chosen: "Valitut",
+    loans: "N\xE4ytett\xE4v\xE4t lainat",
+    loans_helper: "Siin\xE4 j\xE4rjestyksess\xE4 kuin ne n\xE4kyv\xE4t kortilla.",
     loans_on_chart: "Lainat kaaviossa",
     loans_on_chart_helper: "Euribor, jonka kukin tarkistus lukitsi, merkkin\xE4 tai viivana seuraavaan tarkistukseen.",
     ecb: "EKP:n korko",
     ecb_helper: "N\xE4kyy, kun EKP:n korko on lis\xE4tty integraatioon.",
+    show_ranges: "Aikav\xE4lin painikkeet",
+    range: "Aikav\xE4li",
+    range_helper: "Oletuksena n\xE4ytett\xE4v\xE4 aikav\xE4li.",
     markers: "Merkit",
     lines: "Lukitusjaksot viivoina",
     steps: "Portaina",
@@ -1057,14 +1081,35 @@ function browserLanguage() {
 // src/editor.ts
 var DEFAULTS = {
   loans_on_chart: "lines",
-  ecb: "steps"
+  ecb: "steps",
+  show_ranges: true,
+  range: "1y"
 };
-function schema(hass, text2) {
+function schema(hass, config, mode, text2) {
   const select = (options) => ({
     select: { mode: "dropdown", options: options.map(([value, label]) => ({ value, label: text2(`editor.${label}`) })) }
   });
   return [
     { name: "entity", required: true, selector: { entity: { include_entities: rateSensors(hass) } } },
+    {
+      name: "loan_mode",
+      selector: select([
+        ["all", "loans_all"],
+        ["chosen", "loans_chosen"],
+        ["none", "none"]
+      ])
+    },
+    ...mode === "chosen" ? [
+      {
+        name: "loans",
+        selector: {
+          entity: {
+            multiple: true,
+            include_entities: (config.entity ? sources(hass, config.entity)?.loans : void 0)?.map((loan) => loan.entity) ?? []
+          }
+        }
+      }
+    ] : [],
     {
       name: "loans_on_chart",
       selector: select([
@@ -1080,6 +1125,11 @@ function schema(hass, text2) {
         ["markers", "axis_markers"],
         ["none", "none"]
       ])
+    },
+    { name: "show_ranges", selector: { boolean: {} } },
+    {
+      name: "range",
+      selector: { select: { mode: "dropdown", options: RANGES.map(({ key }) => ({ value: key, label: text2(`ranges.${key}`) })) } }
     }
   ];
 }
@@ -1087,9 +1137,17 @@ var EuriborCardEditor = class extends i4 {
   constructor() {
     super(...arguments);
     this.config = { type: "custom:euribor-card", entity: "" };
+    this.loanMode = "all";
   }
   setConfig(config) {
     this.config = { ...config };
+    if (!Array.isArray(config.loans)) {
+      this.loanMode = "all";
+    } else if (config.loans.length) {
+      this.loanMode = "chosen";
+    } else if (this.loanMode !== "chosen") {
+      this.loanMode = "none";
+    }
   }
   render() {
     if (!this.hass) {
@@ -1098,8 +1156,8 @@ var EuriborCardEditor = class extends i4 {
     return b2`
             <ha-form
                 .hass=${this.hass}
-                .data=${{ ...DEFAULTS, ...this.config }}
-                .schema=${schema(this.hass, (key) => this.text(key))}
+                .data=${{ ...DEFAULTS, ...this.config, loan_mode: this.loanMode }}
+                .schema=${schema(this.hass, this.config, this.loanMode, (key) => this.text(key))}
                 .computeLabel=${(entry) => this.text(`editor.${entry.name}`)}
                 .computeHelper=${(entry) => this.helper(entry.name)}
                 @value-changed=${this.valueChanged}
@@ -1107,9 +1165,17 @@ var EuriborCardEditor = class extends i4 {
         `;
   }
   valueChanged(event) {
-    const config = { ...event.detail.value };
-    for (const [key, value] of Object.entries(DEFAULTS)) {
-      if (config[key] === value || config[key] === void 0 || config[key] === null) {
+    const { loan_mode: mode = "all", ...value } = event.detail.value;
+    const order = [...Object.keys(this.config).filter((key) => key in value), ...Object.keys(value)];
+    const config = Object.fromEntries(order.map((key) => [key, value[key]]));
+    this.loanMode = mode;
+    if (mode === "all") {
+      delete config.loans;
+    } else if (mode === "none" || !Array.isArray(config.loans)) {
+      config.loans = [];
+    }
+    for (const [key, value2] of Object.entries(DEFAULTS)) {
+      if (config[key] === value2 || config[key] === void 0 || config[key] === null) {
         delete config[key];
       }
     }
@@ -1133,6 +1199,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], EuriborCardEditor.prototype, "config", 2);
+__decorateClass([
+  r5()
+], EuriborCardEditor.prototype, "loanMode", 2);
 if (!customElements.get("euribor-card-editor")) {
   customElements.define("euribor-card-editor", EuriborCardEditor);
 }
@@ -1155,6 +1224,9 @@ var EuriborCard = class extends i4 {
   setConfig(config) {
     if (!config) {
       throw new Error("Invalid configuration");
+    }
+    if (config.range !== this.config?.range) {
+      this.range = void 0;
     }
     this.config = { ...config };
   }
@@ -1279,7 +1351,7 @@ var EuriborCard = class extends i4 {
   }
   ranges() {
     const available = this.availableRanges();
-    if (available.length < 2) {
+    if (available.length < 2 || this.config?.show_ranges === false) {
       return A;
     }
     const current = this.currentRange();
@@ -1448,17 +1520,18 @@ var EuriborCard = class extends i4 {
     }
   }
   sources() {
-    return this.hass && this.config?.entity ? sources(this.hass, this.config.entity) : void 0;
+    return this.hass && this.config?.entity ? sources(this.hass, this.config.entity, this.config.loans) : void 0;
   }
   availableRanges() {
     return availableRanges(this.statistics?.rates ?? [], this.today());
   }
   currentRange() {
     const available = this.availableRanges();
-    if (this.range && available.includes(this.range)) {
+    if (this.range && available.includes(this.range) && this.config?.show_ranges !== false) {
       return this.range;
     }
-    return available.includes("1y") ? "1y" : "all";
+    const preset = this.config?.range ?? "1y";
+    return available.includes(preset) ? preset : "all";
   }
   loanMarks() {
     return this.config?.loans_on_chart ?? "lines";

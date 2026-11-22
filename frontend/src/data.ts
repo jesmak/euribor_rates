@@ -42,7 +42,8 @@ export function rateSensors(hass: HomeAssistant): string[] {
         .sort();
 }
 
-export function sources(hass: HomeAssistant, entity: string): Sources | undefined {
+/** The loans shown are the chosen ones in the order given, or every loan that follows the maturity by name. */
+export function sources(hass: HomeAssistant, entity: string, chosen?: string[]): Sources | undefined {
     const rate = hass.states[entity];
     const maturity = rate?.attributes.maturity;
     if (!rate || typeof maturity !== "string") {
@@ -67,7 +68,7 @@ export function sources(hass: HomeAssistant, entity: string): Sources | undefine
         maturity,
         history: own.history,
         published: own.published ? hass.states[own.published] : undefined,
-        loans: loans(hass, maturity, siblings),
+        loans: pick(loans(hass, maturity, siblings), chosen),
         ecbRate,
         ecbHistory: ecbRate ? siblings(ecbRate.entity_id).history : undefined,
     };
@@ -102,6 +103,14 @@ function loans(hass: HomeAssistant, maturity: string, siblings: (id: string) => 
         });
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// A chosen loan that doesn't follow the maturity is left out, as its lock periods would be drawn on another Euribor.
+function pick(all: Loan[], chosen?: string[]): Loan[] {
+    if (!Array.isArray(chosen)) {
+        return all;
+    }
+    return chosen.map((id) => all.find((loan) => loan.entity === id)).filter((loan): loan is Loan => !!loan);
 }
 
 function platformOf(hass: HomeAssistant, entity: string): string | undefined {
