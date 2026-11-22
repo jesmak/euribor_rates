@@ -710,11 +710,9 @@ function steps(series) {
 
 // src/chart.ts
 var PAD = { left: 36, right: 8, top: 16, bottom: 16 };
-var FUTURE = 0.25;
 function scale(input) {
   const start = moment(input.start);
-  const now = moment(input.today);
-  const end = input.projection ? now + Math.round((now - start) * FUTURE / DAY) * DAY : now;
+  const end = moment(input.today);
   const values = input.rates.map((point) => point.value);
   if (input.ecbMode === "steps") {
     values.push(...input.ecb.map((point) => point.value));
@@ -774,8 +772,6 @@ function chart(input) {
   const digits = s4.step < 0.05 ? 2 : s4.step < 0.1 ? 2 : s4.step < 0.25 ? 1 : 2;
   const visible = input.rates.filter((point) => moment(point.day) >= s4.start);
   const line = visible.map((point, index) => `${index ? "L" : "M"}${s4.x(moment(point.day)).toFixed(1)},${s4.y(point.value).toFixed(1)}`).join(" ");
-  const now = moment(input.today);
-  const newest = input.rates.at(-1);
   return w`
         <svg viewBox="0 0 ${width} ${height}" width=${width} height=${height} role="img">
             ${ticks.map(
@@ -783,12 +779,9 @@ function chart(input) {
                           <text class="axis" x=${PAD.left - 6} y=${s4.y(value) + 3} text-anchor="end">${input.number(value, digits)}</text>`
   )}
             ${monthTicks(s4, width).map((day) => w`<text class="axis" x=${s4.x(moment(day))} y=${height - 3} text-anchor="middle">${input.month(day)}</text>`)}
-            ${input.projection ? w`<rect class="future" x=${s4.x(now)} y=${PAD.top} width=${Math.max(0, s4.x(s4.end) - s4.x(now))} height=${bottom - PAD.top}></rect>
-                      <text class="axis small" x=${s4.x(s4.end)} y=${PAD.top - 5} text-anchor="end">${input.projectionLabel}</text>` : null}
             ${ecb(input, s4, bottom)}
             ${input.loanMarks === "lines" ? lockLines(input, s4) : null}
             <path class="rate" d=${line}></path>
-            ${input.projection && newest ? w`<line class="rate projection" x1=${s4.x(moment(newest.day))} x2=${s4.x(s4.end)} y1=${s4.y(newest.value)} y2=${s4.y(newest.value)}></line>` : null}
             ${input.loanMarks === "markers" ? lockMarkers(input, s4) : null}
             ${hover(input, s4, bottom)}
         </svg>
@@ -983,7 +976,6 @@ var en_default = {
     stale: "Published {days} days ago",
     month: "1 mo",
     year: "1 y",
-    projection: "if Euribor stays",
     ecb_legend: "ECB deposit rate",
     ecb_short: "ECB",
     locked_legend: "locked Euribor",
@@ -1011,8 +1003,6 @@ var en_default = {
     entity: "Maturity",
     loans_on_chart: "Loans on the chart",
     loans_on_chart_helper: "The Euribor each reset locked, as a marker or as a line to the next reset.",
-    projection: "Projection",
-    projection_helper: "Today's Euribor drawn on into the future.",
     ecb: "ECB rate",
     ecb_helper: "Shown once the ECB's rate is added to the integration.",
     markers: "Markers",
@@ -1034,7 +1024,6 @@ var fi_default = {
     stale: "Julkaistu {days} pv sitten",
     month: "1 kk",
     year: "1 v",
-    projection: "jos euribor pysyy",
     ecb_legend: "EKP:n talletuskorko",
     ecb_short: "EKP",
     locked_legend: "lukittu euribor",
@@ -1062,8 +1051,6 @@ var fi_default = {
     entity: "Korkojakso",
     loans_on_chart: "Lainat kaaviossa",
     loans_on_chart_helper: "Euribor, jonka kukin tarkistus lukitsi, merkkin\xE4 tai viivana seuraavaan tarkistukseen.",
-    projection: "Ennuste",
-    projection_helper: "T\xE4m\xE4n p\xE4iv\xE4n euribor jatkettuna tulevaan.",
     ecb: "EKP:n korko",
     ecb_helper: "N\xE4kyy, kun EKP:n korko on lis\xE4tty integraatioon.",
     markers: "Merkit",
@@ -1101,7 +1088,6 @@ function browserLanguage() {
 // src/editor.ts
 var DEFAULTS = {
   loans_on_chart: "lines",
-  projection: true,
   ecb: "steps"
 };
 function schema(hass, text2) {
@@ -1118,7 +1104,6 @@ function schema(hass, text2) {
         ["none", "none"]
       ])
     },
-    { name: "projection", selector: { boolean: {} } },
     {
       name: "ecb",
       selector: select([
@@ -1382,12 +1367,10 @@ var EuriborCard = class extends i4 {
       ecbMode: this.ecbMode(),
       loans: chartLoans,
       loanMarks: loans2.length ? this.loanMarks() : "none",
-      projection: this.config?.projection !== false,
       hover: this.hover,
       number: (value, digits) => this.number(value, digits),
       month: (day) => this.monthLabel(day),
-      date: (day) => this.shortDate(day, true),
-      projectionLabel: this.text("card.projection")
+      date: (day) => this.shortDate(day, true)
     };
   }
   // The rate's own line needs no entry, as the title above it names it in the same colour.
@@ -1755,21 +1738,11 @@ EuriborCard.styles = i`
             fill: var(--secondary-text-color);
             font-size: 10px;
         }
-        .axis.small {
-            font-size: 9px;
-        }
-        .future {
-            fill: rgba(127, 127, 127, 0.06);
-        }
         .rate {
             fill: none;
             stroke: var(--euribor-card-rate);
             stroke-width: 1.6;
             stroke-linejoin: round;
-        }
-        .projection {
-            stroke-dasharray: 3 4;
-            opacity: 0.7;
         }
         .ecb-step {
             fill: none;

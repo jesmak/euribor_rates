@@ -283,12 +283,10 @@ export class EuriborCard extends LitElement {
             ecbMode: this.ecbMode(),
             loans: chartLoans,
             loanMarks: loans.length ? this.loanMarks() : "none",
-            projection: this.config?.projection !== false,
             hover: this.hover,
             number: (value, digits) => this.number(value, digits),
             month: (day) => this.monthLabel(day),
             date: (day) => this.shortDate(day, true),
-            projectionLabel: this.text("card.projection"),
         };
     }
 
@@ -689,21 +687,11 @@ export class EuriborCard extends LitElement {
             fill: var(--secondary-text-color);
             font-size: 10px;
         }
-        .axis.small {
-            font-size: 9px;
-        }
-        .future {
-            fill: rgba(127, 127, 127, 0.06);
-        }
         .rate {
             fill: none;
             stroke: var(--euribor-card-rate);
             stroke-width: 1.6;
             stroke-linejoin: round;
-        }
-        .projection {
-            stroke-dasharray: 3 4;
-            opacity: 0.7;
         }
         .ecb-step {
             fill: none;

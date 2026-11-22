@@ -25,19 +25,14 @@ export interface ChartInput {
     ecbMode: EcbMode;
     loans: ChartLoan[];
     loanMarks: LoanMarks;
-    projection: boolean;
     hover?: string;
     /** Number and date formats, in the viewer's language. */
     number: (value: number, digits: number) => string;
     month: (day: string) => string;
     date: (day: string) => string;
-    projectionLabel: string;
 }
 
 const PAD = { left: 36, right: 8, top: 16, bottom: 16 };
-// The future drawn for the projection, as a share of the range shown.
-const FUTURE = 0.25;
-
 export interface Scale {
     start: number;
     end: number;
@@ -52,8 +47,7 @@ export interface Scale {
 
 export function scale(input: ChartInput): Scale {
     const start = moment(input.start);
-    const now = moment(input.today);
-    const end = input.projection ? now + Math.round(((now - start) * FUTURE) / DAY) * DAY : now;
+    const end = moment(input.today);
     const values = input.rates.map((point) => point.value);
     if (input.ecbMode === "steps") {
         values.push(...input.ecb.map((point) => point.value));
@@ -118,8 +112,6 @@ export function chart(input: ChartInput): SVGTemplateResult {
     const line = visible
         .map((point, index) => `${index ? "L" : "M"}${s.x(moment(point.day)).toFixed(1)},${s.y(point.value).toFixed(1)}`)
         .join(" ");
-    const now = moment(input.today);
-    const newest = input.rates.at(-1);
 
     return svg`
         <svg viewBox="0 0 ${width} ${height}" width=${width} height=${height} role="img">
@@ -130,20 +122,9 @@ export function chart(input: ChartInput): SVGTemplateResult {
                           <text class="axis" x=${PAD.left - 6} y=${s.y(value) + 3} text-anchor="end">${input.number(value, digits)}</text>`,
             )}
             ${monthTicks(s, width).map((day) => svg`<text class="axis" x=${s.x(moment(day))} y=${height - 3} text-anchor="middle">${input.month(day)}</text>`)}
-            ${
-                input.projection
-                    ? svg`<rect class="future" x=${s.x(now)} y=${PAD.top} width=${Math.max(0, s.x(s.end) - s.x(now))} height=${bottom - PAD.top}></rect>
-                      <text class="axis small" x=${s.x(s.end)} y=${PAD.top - 5} text-anchor="end">${input.projectionLabel}</text>`
-                    : null
-            }
             ${ecb(input, s, bottom)}
             ${input.loanMarks === "lines" ? lockLines(input, s) : null}
             <path class="rate" d=${line}></path>
-            ${
-                input.projection && newest
-                    ? svg`<line class="rate projection" x1=${s.x(moment(newest.day))} x2=${s.x(s.end)} y1=${s.y(newest.value)} y2=${s.y(newest.value)}></line>`
-                    : null
-            }
             ${input.loanMarks === "markers" ? lockMarkers(input, s) : null}
             ${hover(input, s, bottom)}
         </svg>

@@ -1,4 +1,4 @@
-/** The card's visual editor: the maturity, how the loans and the ECB's rate show on the chart, and the projection. */
+/** The card's visual editor: the maturity, and how the loans and the ECB's rate show on the chart. */
 import { LitElement, html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
@@ -14,7 +14,6 @@ interface SchemaEntry {
 
 const DEFAULTS: Record<string, unknown> = {
     loans_on_chart: "lines",
-    projection: true,
     ecb: "steps",
 };
 
@@ -32,7 +31,6 @@ function schema(hass: HomeAssistant, text: (key: string) => string) {
                 ["none", "none"],
             ]),
         },
-        { name: "projection", selector: { boolean: {} } },
         {
             name: "ecb",
             selector: select([

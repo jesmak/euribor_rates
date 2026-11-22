@@ -186,13 +186,12 @@ sensor.
 The card has a visual editor. Add **Euribor** from the card picker and choose the maturity. The options can also be
 written by hand.
 
-| Name             | Type    | Description                                                                                                                                                      | Default  |
-| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `type`           | string  | `custom:euribor-card`                                                                                                                                            | required |
-| `entity`         | string  | A maturity's rate sensor, such as `sensor.euribor_12_months`                                                                                                     | required |
-| `loans_on_chart` | string  | The Euribor each of the loans' resets locked. `lines` draws it as a line to the next reset, `markers` as a circle on the day it was locked, `none` leaves it out | `lines`  |
-| `projection`     | boolean | Today's Euribor drawn on into the future, with the loans' lines up to their next resets                                                                          | `true`   |
-| `ecb`            | string  | The ECB's rate, once it is added to the integration. `steps` draws it as a step line, `markers` marks its changes on the axis, `none` leaves it out              | `steps`  |
+| Name             | Type   | Description                                                                                                                                                      | Default  |
+| ---------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `type`           | string | `custom:euribor-card`                                                                                                                                            | required |
+| `entity`         | string | A maturity's rate sensor, such as `sensor.euribor_12_months`                                                                                                     | required |
+| `loans_on_chart` | string | The Euribor each of the loans' resets locked. `lines` draws it as a line to the next reset, `markers` as a circle on the day it was locked, `none` leaves it out | `lines`  |
+| `ecb`            | string | The ECB's rate, once it is added to the integration. `steps` draws it as a step line, `markers` marks its changes on the axis, `none` leaves it out              | `steps`  |
 
 ### What it shows
 
