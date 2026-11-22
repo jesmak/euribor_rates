@@ -265,6 +265,10 @@ export class EuriborCard extends LitElement {
         const today = this.today();
         const start = rangeStart(this.currentRange(), rates, today);
         const months = MONTHS_BY_MATURITY[found.maturity] ?? 12;
+        // The ECB's rate from the range on, with the day before it, so a step on the first day still shows as a step.
+        const ecbAll = found.ecbRate ? (this.statistics?.ecb ?? []) : [];
+        const ecbBefore = ecbAll.filter((point) => point.day < start).at(-1);
+        const ecb = [...(ecbBefore ? [ecbBefore] : []), ...ecbAll.filter((point) => point.day >= start)];
         const chartLoans: ChartLoan[] = loans.map((loan, index) => ({
             color: LOAN_COLORS[index % LOAN_COLORS.length],
             periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today) : [],
@@ -275,7 +279,7 @@ export class EuriborCard extends LitElement {
             start,
             today,
             rates: rates.filter((point) => point.day >= start),
-            ecb: found.ecbRate ? (this.statistics?.ecb ?? []) : [],
+            ecb,
             ecbMode: this.ecbMode(),
             loans: chartLoans,
             loanMarks: loans.length ? this.loanMarks() : "none",

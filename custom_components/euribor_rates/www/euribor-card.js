@@ -1357,6 +1357,9 @@ var EuriborCard = class extends i4 {
     const today = this.today();
     const start = rangeStart(this.currentRange(), rates, today);
     const months = MONTHS_BY_MATURITY[found.maturity] ?? 12;
+    const ecbAll = found.ecbRate ? this.statistics?.ecb ?? [] : [];
+    const ecbBefore = ecbAll.filter((point) => point.day < start).at(-1);
+    const ecb2 = [...ecbBefore ? [ecbBefore] : [], ...ecbAll.filter((point) => point.day >= start)];
     const chartLoans = loans2.map((loan, index) => ({
       color: LOAN_COLORS[index % LOAN_COLORS.length],
       periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today) : []
@@ -1367,7 +1370,7 @@ var EuriborCard = class extends i4 {
       start,
       today,
       rates: rates.filter((point) => point.day >= start),
-      ecb: found.ecbRate ? this.statistics?.ecb ?? [] : [],
+      ecb: ecb2,
       ecbMode: this.ecbMode(),
       loans: chartLoans,
       loanMarks: loans2.length ? this.loanMarks() : "none",
