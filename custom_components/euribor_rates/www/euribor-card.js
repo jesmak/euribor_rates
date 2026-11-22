@@ -666,37 +666,15 @@ function changes(series) {
   };
   return { month: change(1), year: change(12) };
 }
-function lockedOn(series, reset, lockDays) {
-  const lastDay = new Date(moment(reset) - (lockDays ? DAY : 0));
-  const lastWorkingDay = dayOf(lastDay.getTime() - Math.max(0, (lastDay.getUTCDay() + 6) % 7 - 4) * DAY);
-  if ((series.at(-1)?.day ?? "") < lastWorkingDay) {
-    return void 0;
+function periodsFrom(result) {
+  const periods = result?.periods;
+  if (!Array.isArray(periods)) {
+    return [];
   }
-  if (!lockDays) {
-    return valueOn(series, reset);
-  }
-  let count = 0;
-  for (let index = series.length - 1; index >= 0; index--) {
-    if (series[index].day < reset && ++count === lockDays) {
-      return series[index];
-    }
-  }
-  return void 0;
-}
-function lockPeriods(series, enteredReset, months, lockDays, start, today, known) {
-  const monthOf = (day) => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7));
-  let count = Math.floor((monthOf(start) - monthOf(enteredReset)) / months) - 2;
-  const first = series[0]?.day;
-  const periods = [];
-  for (let reset = addMonths(enteredReset, count * months); reset <= today; reset = addMonths(enteredReset, ++count * months)) {
-    const until = addMonths(enteredReset, (count + 1) * months);
-    const fromSeries = first && reset >= first ? lockedOn(series, reset, lockDays) : void 0;
-    const locked = fromSeries ?? (known?.reset === reset ? known.locked : void 0);
-    if (locked && until > start) {
-      periods.push({ reset, until, locked });
-    }
-  }
-  return periods;
+  const day = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return periods.flatMap(
+    (period) => day(period.reset) && day(period.until) && day(period.rate_date) && typeof period.rate === "number" ? [{ reset: period.reset, until: period.until, locked: { day: period.rate_date, value: period.rate } }] : []
+  );
 }
 function steps(series) {
   const result = [];
@@ -822,7 +800,7 @@ function ecb(input, s4, bottom) {
     })}`;
   }
   const before = input.ecb.filter((point) => moment(point.day) <= s4.start).at(-1) ?? input.ecb[0];
-  let path = `M${s4.x(s4.start)},${s4.y(before.value)}`;
+  let path = `M${s4.x(Math.max(s4.start, moment(before.day)))},${s4.y(before.value)}`;
   let level = before.value;
   for (const change of changes2) {
     const x2 = s4.x(moment(change.day));
@@ -885,7 +863,6 @@ var STALE_HOURS = 108;
 
 // src/data.ts
 var PLATFORM = "euribor_rates";
-var MONTHS_BY_MATURITY = { "1 month": 1, "3 months": 3, "6 months": 6, "12 months": 12 };
 function rateSensors(hass) {
   return Object.values(hass.states).filter(
     (state) => !!state && platformOf(hass, state.entity_id) === PLATFORM && "latest_rate" in state.attributes
@@ -936,9 +913,7 @@ function loans(hass, maturity, siblings) {
       rate: number(state.state),
       margin: Number(attributes.margin),
       maturity,
-      lockDays: Number(attributes.lock_days ?? 0),
-      enteredReset: text(attributes.entered_reset),
-      previous: previous(attributes),
+      reset: text(attributes.reset_date),
       pending: attributes.pending === true,
       locked: number(reference?.state),
       rateToday: number(own.rate_today ? hass.states[own.rate_today]?.state : void 0),
@@ -947,12 +922,6 @@ function loans(hass, maturity, siblings) {
     });
   }
   return result.sort((a3, b3) => a3.name.localeCompare(b3.name));
-}
-function previous(attributes) {
-  const reset = text(attributes.previous_reset);
-  const day = text(attributes.previous_rate_date);
-  const value = attributes.previous_rate;
-  return reset && day && typeof value === "number" ? { reset, locked: { day, value } } : void 0;
 }
 function platformOf(hass, entity) {
   return hass.entities?.[entity]?.platform;
@@ -1349,13 +1318,12 @@ var EuriborCard = class extends i4 {
     }
     const today = this.today();
     const start = rangeStart(this.currentRange(), rates, today);
-    const months = MONTHS_BY_MATURITY[found.maturity] ?? 12;
     const ecbAll = found.ecbRate ? this.statistics?.ecb ?? [] : [];
     const ecbBefore = ecbAll.filter((point) => point.day < start).at(-1);
     const ecb2 = [...ecbBefore ? [ecbBefore] : [], ...ecbAll.filter((point) => point.day >= start)];
     const chartLoans = loans2.map((loan, index) => ({
       color: LOAN_COLORS[index % LOAN_COLORS.length],
-      periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today, loan.previous) : []
+      periods: (this.statistics?.periods[loan.entity] ?? []).filter((period) => period.until > start)
     }));
     return {
       width: this.size.width,
@@ -1431,11 +1399,16 @@ var EuriborCard = class extends i4 {
   }
   async loadStatistics() {
     const found = this.sources();
-    if (!this.hass?.callWS || !found?.history) {
+    const hass = this.hass;
+    const callWS = hass?.callWS?.bind(hass);
+    if (!hass || !callWS || !found?.history) {
       return;
     }
     const ids = [found.history, ...found.ecbHistory ? [found.ecbHistory] : []];
-    const key = ids.map((id) => `${id}:${this.hass?.states[id]?.state}`).join("|");
+    const key = [
+      ...ids.map((id) => `${id}:${this.hass?.states[id]?.state}`),
+      ...found.loans.map((loan) => `${loan.entity}:${loan.reset}:${loan.pending}`)
+    ].join("|");
     const now = Date.now();
     const read2 = this.statistics?.key === key ? this.statistics : void 0;
     if (this.loading === key || read2 && (read2.complete || read2.retries >= MAX_RETRIES || now - read2.readAt < RETRY_MS) || this.failed?.key === key && now - this.failed.at < RETRY_MS) {
@@ -1443,14 +1416,17 @@ var EuriborCard = class extends i4 {
     }
     this.loading = key;
     try {
-      const rows = await this.hass.callWS({
-        type: "recorder/statistics_during_period",
-        start_time: HISTORY_START,
-        statistic_ids: ids,
-        period: "day",
-        types: ["mean"]
-      });
-      const zone = this.hass.config?.time_zone;
+      const [rows, ...answers] = await Promise.all([
+        callWS({
+          type: "recorder/statistics_during_period",
+          start_time: HISTORY_START,
+          statistic_ids: ids,
+          period: "day",
+          types: ["mean"]
+        }),
+        ...found.loans.map((loan) => callWS({ type: "euribor_rates/loan_periods", entity_id: loan.entity }))
+      ]);
+      const zone = hass.config?.time_zone;
       const rates = points(rows[found.history], zone);
       const ecb2 = found.ecbHistory ? points(rows[found.ecbHistory], zone) : [];
       const newest = (series, id) => !id || series.at(-1)?.day === this.hass?.states[id]?.state;
@@ -1458,6 +1434,7 @@ var EuriborCard = class extends i4 {
         key,
         rates,
         ecb: ecb2,
+        periods: Object.fromEntries(found.loans.map((loan, index) => [loan.entity, periodsFrom(answers[index])])),
         complete: newest(rates, found.history) && newest(ecb2, found.ecbHistory),
         readAt: now,
         retries: read2 ? read2.retries + 1 : 0

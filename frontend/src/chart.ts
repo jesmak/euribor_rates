@@ -167,8 +167,9 @@ function ecb(input: ChartInput, s: Scale, bottom: number): SVGTemplateResult | n
                 <text class="ecb-label" x=${x + 5} y=${bottom - 2}>${signed(input, change.to - change.from)}</text>`;
         })}`;
     }
+    // A history shorter than the range starts the line where the history does.
     const before = input.ecb.filter((point) => moment(point.day) <= s.start).at(-1) ?? input.ecb[0];
-    let path = `M${s.x(s.start)},${s.y(before.value)}`;
+    let path = `M${s.x(Math.max(s.start, moment(before.day)))},${s.y(before.value)}`;
     let level = before.value;
     for (const change of changes) {
         const x = s.x(moment(change.day));

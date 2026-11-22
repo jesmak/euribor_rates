@@ -1,7 +1,7 @@
 """A loan tied to Euribor: its reset days and the rate each one locks.
 
-A loan's rate is reset once per its maturity, a 12 month loan once a year and a 3 month one four times. Each reset
-locks the Euribor of the reset day, or of the last day before it with a rate when the day had none.
+A loan's rate is reset once per its maturity from the day it started, a 12 month loan once a year and a 3 month one four
+times. Each reset locks the Euribor of the reset day, or of the last day before it with a rate when the day had none.
 """
 
 from __future__ import annotations
@@ -28,10 +28,15 @@ class LoanRates:
     pending: bool
     next_reset: date
     newest: Rate | None
-    # The reset before the one that locked the reference, and the Euribor it locked, for a chart of the past whose
-    # statistics may not reach back that far.
-    previous_reset: date
-    previous: Rate | None
+
+
+@dataclass(frozen=True)
+class LockPeriod:
+    """A reset, the next one, and the Euribor the reset locked for the time between them."""
+
+    reset: date
+    until: date
+    rate: Rate
 
 
 def add_months(day: date, months: int) -> date:
@@ -41,15 +46,16 @@ def add_months(day: date, months: int) -> date:
     return date(year, month + 1, min(day.day, calendar.monthrange(year, month + 1)[1]))
 
 
-def resets_around(reset_day: date, months: int, today: date) -> tuple[date, date, date]:
+def resets_around(start: date, months: int, today: date) -> tuple[date, date, date]:
     """The reset before the latest one, the latest one on or before today, and the next one after today.
 
-    Every reset is counted from the one given, so a loan reset on the 31st returns to the 31st after a shorter month.
+    Every reset is counted from the loan's start, so a loan started on the 31st returns to the 31st after a shorter
+    month.
     """
-    count = ((today.year - reset_day.year) * 12 + today.month - reset_day.month) // months
-    if add_months(reset_day, count * months) > today:
+    count = ((today.year - start.year) * 12 + today.month - start.month) // months
+    if add_months(start, count * months) > today:
         count -= 1
-    before, latest_reset, next_reset = (add_months(reset_day, (count + step) * months) for step in (-1, 0, 1))
+    before, latest_reset, next_reset = (add_months(start, (count + step) * months) for step in (-1, 0, 1))
     return before, latest_reset, next_reset
 
 
@@ -74,13 +80,27 @@ def locked(rates: list[Rate], reset: date, lock_days: int = 0) -> Rate | None:
     return next((rate for count, rate in enumerate(before, 1) if count == lock_days), None)
 
 
-def loan_rates(rates: list[Rate], reset_day: date, months: int, today: date, lock_days: int = 0) -> LoanRates:
-    before, latest_reset, next_reset = resets_around(reset_day, months, today)
+def loan_rates(rates: list[Rate], start: date, months: int, today: date, lock_days: int = 0) -> LoanRates:
+    before, latest_reset, next_reset = resets_around(start, months, today)
     reference = locked(rates, latest_reset, lock_days)
-    pending = reference is None
-    reset = before if pending else latest_reset
-    if pending:
-        reference = locked(rates, before, lock_days)
-    _, previous_reset, _ = resets_around(reset_day, months, reset - timedelta(days=1))
-    previous = locked(rates, previous_reset, lock_days)
-    return LoanRates(reference, reset, pending, next_reset, latest(rates), previous_reset, previous)
+    if reference is not None:
+        return LoanRates(reference, latest_reset, False, next_reset, latest(rates))
+    # Until the latest reset's rate is out the previous reset's holds, but a loan that has only just started has none.
+    if before < start:
+        return LoanRates(None, latest_reset, True, next_reset, latest(rates))
+    return LoanRates(locked(rates, before, lock_days), before, True, next_reset, latest(rates))
+
+
+def loan_periods(rates: list[Rate], start: date, months: int, today: date, lock_days: int = 0) -> list[LockPeriod]:
+    """Every reset from the loan's start up to today whose rate is known, with the rate it locked."""
+    periods = []
+    count = 0
+    reset = start
+    while reset <= today:
+        until = add_months(start, (count + 1) * months)
+        rate = locked(rates, reset, lock_days)
+        if rate is not None:
+            periods.append(LockPeriod(reset, until, rate))
+        count += 1
+        reset = until
+    return periods

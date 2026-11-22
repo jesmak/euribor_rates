@@ -13,13 +13,13 @@ import { property, state } from "lit/decorators.js";
 import { chart, scale } from "./chart";
 import type { ChartInput, ChartLoan } from "./chart";
 import { CARD_VERSION, DEFAULT_ROWS, LOAN_COLORS, ROW_GAP, ROW_HEIGHT, STALE_HOURS, minimumRows } from "./const";
-import { MONTHS_BY_MATURITY, rateSensors, sources } from "./data";
+import { rateSensors, sources } from "./data";
 import type { Loan, Sources } from "./data";
 import "./editor";
 import type { HomeAssistant } from "./hass";
 import { browserLanguage, translate } from "./localize/localize";
-import { availableRanges, changes, lockPeriods, points, rangeStart } from "./series";
-import type { Point, RangeKey, StatisticRow } from "./series";
+import { availableRanges, changes, periodsFrom, points, rangeStart } from "./series";
+import type { LockPeriod, Point, RangeKey, StatisticRow } from "./series";
 import type { EuriborCardConfig } from "./types";
 
 interface CardRegistration {
@@ -34,6 +34,8 @@ interface Statistics {
     key: string;
     rates: Point[];
     ecb: Point[];
+    /** Each loan's lock periods since its start, by its rate sensor. */
+    periods: Record<string, LockPeriod[]>;
     /** Whether the newest rows are the days the history sensors show. */
     complete: boolean;
     readAt: number;
@@ -264,14 +266,13 @@ export class EuriborCard extends LitElement {
         }
         const today = this.today();
         const start = rangeStart(this.currentRange(), rates, today);
-        const months = MONTHS_BY_MATURITY[found.maturity] ?? 12;
         // The ECB's rate from the range on, with the day before it, so a step on the first day still shows as a step.
         const ecbAll = found.ecbRate ? (this.statistics?.ecb ?? []) : [];
         const ecbBefore = ecbAll.filter((point) => point.day < start).at(-1);
         const ecb = [...(ecbBefore ? [ecbBefore] : []), ...ecbAll.filter((point) => point.day >= start)];
         const chartLoans: ChartLoan[] = loans.map((loan, index) => ({
             color: LOAN_COLORS[index % LOAN_COLORS.length],
-            periods: loan.enteredReset ? lockPeriods(rates, loan.enteredReset, months, loan.lockDays, start, today, loan.previous) : [],
+            periods: (this.statistics?.periods[loan.entity] ?? []).filter((period) => period.until > start),
         }));
         return {
             width: this.size.width,
@@ -354,12 +355,18 @@ export class EuriborCard extends LitElement {
 
     private async loadStatistics(): Promise<void> {
         const found = this.sources();
-        if (!this.hass?.callWS || !found?.history) {
+        const hass = this.hass;
+        const callWS = hass?.callWS?.bind(hass);
+        if (!hass || !callWS || !found?.history) {
             return;
         }
         const ids = [found.history, ...(found.ecbHistory ? [found.ecbHistory] : [])];
-        // A history sensor's state is the day of its newest rate, so a new day reads the statistics again.
-        const key = ids.map((id) => `${id}:${this.hass?.states[id]?.state}`).join("|");
+        // A history sensor's state is the day of its newest rate, so a new day reads the statistics again, and a loan's
+        // periods change with the reset that locks its rate.
+        const key = [
+            ...ids.map((id) => `${id}:${this.hass?.states[id]?.state}`),
+            ...found.loans.map((loan) => `${loan.entity}:${loan.reset}:${loan.pending}`),
+        ].join("|");
         const now = Date.now();
         const read = this.statistics?.key === key ? this.statistics : undefined;
         if (
@@ -371,14 +378,17 @@ export class EuriborCard extends LitElement {
         }
         this.loading = key;
         try {
-            const rows = await this.hass.callWS<Record<string, StatisticRow[]>>({
-                type: "recorder/statistics_during_period",
-                start_time: HISTORY_START,
-                statistic_ids: ids,
-                period: "day",
-                types: ["mean"],
-            });
-            const zone = this.hass.config?.time_zone;
+            const [rows, ...answers] = await Promise.all([
+                callWS<Record<string, StatisticRow[]>>({
+                    type: "recorder/statistics_during_period",
+                    start_time: HISTORY_START,
+                    statistic_ids: ids,
+                    period: "day",
+                    types: ["mean"],
+                }),
+                ...found.loans.map((loan) => callWS<unknown>({ type: "euribor_rates/loan_periods", entity_id: loan.entity })),
+            ]);
+            const zone = hass.config?.time_zone;
             const rates = points(rows[found.history], zone);
             const ecb = found.ecbHistory ? points(rows[found.ecbHistory], zone) : [];
             // The history sensor shows a new day as soon as its rows are queued, which can be before the recorder writes them.
@@ -387,6 +397,7 @@ export class EuriborCard extends LitElement {
                 key,
                 rates,
                 ecb,
+                periods: Object.fromEntries(found.loans.map((loan, index) => [loan.entity, periodsFrom(answers[index])])),
                 complete: newest(rates, found.history) && newest(ecb, found.ecbHistory),
                 readAt: now,
                 retries: read ? read.retries + 1 : 0,

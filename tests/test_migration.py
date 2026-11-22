@@ -127,7 +127,7 @@ async def test_an_entry_with_only_a_loan_is_left_as_it_is(hass: HomeAssistant, e
     """Every maturity can be deleted while a loan stays, and the entry is still a converted one."""
     from homeassistant.config_entries import ConfigSubentryData
 
-    from custom_components.euribor_rates.const import CONF_MARGIN, CONF_RESET_DATE, SUBENTRY_LOAN
+    from custom_components.euribor_rates.const import CONF_MARGIN, CONF_START_DATE, SUBENTRY_LOAN
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -137,7 +137,7 @@ async def test_an_entry_with_only_a_loan_is_left_as_it_is(hass: HomeAssistant, e
         data={},
         subentries_data=[
             ConfigSubentryData(
-                data={CONF_MATURITY: "12 months", CONF_MARGIN: 0.5, CONF_RESET_DATE: "2026-09-14"},
+                data={CONF_MATURITY: "12 months", CONF_MARGIN: 0.5, CONF_START_DATE: "2026-09-14"},
                 subentry_type=SUBENTRY_LOAN,
                 title="Home loan",
                 unique_id=None,

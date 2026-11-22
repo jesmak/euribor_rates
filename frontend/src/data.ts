@@ -4,12 +4,8 @@
  * and which follow Home Assistant's language.
  */
 import type { HassEntity, HomeAssistant } from "./hass";
-import type { Point } from "./series";
 
 export const PLATFORM = "euribor_rates";
-
-/** The months between a loan's resets, by the maturity it follows. */
-export const MONTHS_BY_MATURITY: Record<string, number> = { "1 month": 1, "3 months": 3, "6 months": 6, "12 months": 12 };
 
 export interface Loan {
     entity: string;
@@ -17,11 +13,8 @@ export interface Loan {
     rate?: number;
     margin: number;
     maturity: string;
-    lockDays: number;
-    /** The reset day entered for the loan, which every reset is counted from. */
-    enteredReset?: string;
-    /** The reset before the one that locked the current rate, and the Euribor it locked, from the integration. */
-    previous?: { reset: string; locked: Point };
+    /** The reset that locked the current rate, which tells when the lock periods change. */
+    reset?: string;
     pending: boolean;
     locked?: number;
     rateToday?: number;
@@ -100,9 +93,7 @@ function loans(hass: HomeAssistant, maturity: string, siblings: (id: string) => 
             rate: number(state.state),
             margin: Number(attributes.margin),
             maturity,
-            lockDays: Number(attributes.lock_days ?? 0),
-            enteredReset: text(attributes.entered_reset),
-            previous: previous(attributes),
+            reset: text(attributes.reset_date),
             pending: attributes.pending === true,
             locked: number(reference?.state),
             rateToday: number(own.rate_today ? hass.states[own.rate_today]?.state : undefined),
@@ -111,13 +102,6 @@ function loans(hass: HomeAssistant, maturity: string, siblings: (id: string) => 
         });
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function previous(attributes: Record<string, unknown>): Loan["previous"] {
-    const reset = text(attributes.previous_reset);
-    const day = text(attributes.previous_rate_date);
-    const value = attributes.previous_rate;
-    return reset && day && typeof value === "number" ? { reset, locked: { day, value } } : undefined;
 }
 
 function platformOf(hass: HomeAssistant, entity: string): string | undefined {

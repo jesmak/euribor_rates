@@ -37,7 +37,7 @@ MAX_DAYS: Final = 10950
 # A loan's data. Its name is the subentry's title.
 CONF_NAME: Final = "name"
 CONF_MARGIN: Final = "margin"
-CONF_RESET_DATE: Final = "reset_date"
+CONF_START_DATE: Final = "start_date"
 # How many working days before the reset day the rate is locked. Loans added before it lock the reset day's.
 CONF_LOCK_DAYS: Final = "lock_days"
 MAX_LOCK_DAYS: Final = 10
@@ -61,7 +61,4 @@ ATTR_RATE_DATE: Final = "rate_date"
 ATTR_RESET_DATE: Final = "reset_date"
 ATTR_EFFECTIVE_DATE: Final = "effective_date"
 ATTR_LOCK_DAYS: Final = "lock_days"
-ATTR_ENTERED_RESET: Final = "entered_reset"
-ATTR_PREVIOUS_RESET: Final = "previous_reset"
-ATTR_PREVIOUS_RATE: Final = "previous_rate"
-ATTR_PREVIOUS_RATE_DATE: Final = "previous_rate_date"
+ATTR_START_DATE: Final = "start_date"

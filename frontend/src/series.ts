@@ -1,6 +1,6 @@
-// The rates as the card works with them: one point per day from the history sensors' statistics, and what is worked out
-// from them (the ranges the history covers, the changes over a month and a year, the rate each of a loan's resets
-// locked).
+// The rates as the card works with them: one point per day from the history sensors' statistics, what is worked out
+// from them (the ranges the history covers, the changes over a month and a year), and the loans' lock periods as the
+// integration gives them.
 
 /** One day's rate. `day` is the day the statistics row is for, as YYYY-MM-DD in Home Assistant's time zone. */
 export interface Point {
@@ -104,65 +104,25 @@ export function changes(series: Point[]): { month?: number; year?: number } {
     return { month: change(1), year: change(12) };
 }
 
-/**
- * The rate a reset locked, as the integration works it out: the reset day's own, or the last before it when the day had
- * none, or with lock days, the rate that many days with a rate before the reset day.
- */
-export function lockedOn(series: Point[], reset: string, lockDays: number): Point | undefined {
-    // Until the last working day it can lock is out, a missing day can't be told from one not yet published.
-    const lastDay = new Date(moment(reset) - (lockDays ? DAY : 0));
-    const lastWorkingDay = dayOf(lastDay.getTime() - Math.max(0, ((lastDay.getUTCDay() + 6) % 7) - 4) * DAY);
-    if ((series.at(-1)?.day ?? "") < lastWorkingDay) {
-        return undefined;
-    }
-    if (!lockDays) {
-        return valueOn(series, reset);
-    }
-    let count = 0;
-    for (let index = series.length - 1; index >= 0; index--) {
-        if (series[index].day < reset && ++count === lockDays) {
-            return series[index];
-        }
-    }
-    return undefined;
-}
-
-/** A loan's lock period: from its reset to the next, at the rate the reset locked. */
+/** A loan's lock period: from its reset to the next, at the Euribor the reset locked. */
 export interface LockPeriod {
     reset: string;
     until: string;
     locked: Point;
 }
 
-/**
- * Every lock period that reaches into the days from `start` on, up to the reset on or before `today`. Each reset is
- * counted from the one entered for the loan, as the integration counts them, so a loan reset on the 31st returns to the
- * 31st after a shorter month. A reset whose rate the statistics don't have, being before them or not out yet, has none,
- * unless it is the `known` one, a reset whose locked rate the integration gave.
- */
-export function lockPeriods(
-    series: Point[],
-    enteredReset: string,
-    months: number,
-    lockDays: number,
-    start: string,
-    today: string,
-    known?: { reset: string; locked: Point },
-): LockPeriod[] {
-    const monthOf = (day: string): number => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7));
-    // From a count of resets safely before the start's previous reset, as a period begun then reaches into the range.
-    let count = Math.floor((monthOf(start) - monthOf(enteredReset)) / months) - 2;
-    const first = series[0]?.day;
-    const periods: LockPeriod[] = [];
-    for (let reset = addMonths(enteredReset, count * months); reset <= today; reset = addMonths(enteredReset, ++count * months)) {
-        const until = addMonths(enteredReset, (count + 1) * months);
-        const fromSeries = first && reset >= first ? lockedOn(series, reset, lockDays) : undefined;
-        const locked = fromSeries ?? (known?.reset === reset ? known.locked : undefined);
-        if (locked && until > start) {
-            periods.push({ reset, until, locked });
-        }
+/** The lock periods in the integration's answer to `euribor_rates/loan_periods`, leaving out anything malformed. */
+export function periodsFrom(result: unknown): LockPeriod[] {
+    const periods = (result as { periods?: unknown } | undefined)?.periods;
+    if (!Array.isArray(periods)) {
+        return [];
     }
-    return periods;
+    const day = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    return periods.flatMap((period: Record<string, unknown>) =>
+        day(period.reset) && day(period.until) && day(period.rate_date) && typeof period.rate === "number"
+            ? [{ reset: period.reset, until: period.until, locked: { day: period.rate_date, value: period.rate } }]
+            : [],
+    );
 }
 
 /** The days the ECB's rate changed, with the rate before and after. */

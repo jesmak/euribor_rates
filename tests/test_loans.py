@@ -17,10 +17,10 @@ from custom_components.euribor_rates.const import (
     CONF_MARGIN,
     CONF_MATURITY,
     CONF_NAME,
-    CONF_RESET_DATE,
+    CONF_START_DATE,
     SUBENTRY_LOAN,
 )
-from custom_components.euribor_rates.loans import add_months, loan_rates, locked, resets_around
+from custom_components.euribor_rates.loans import LockPeriod, add_months, loan_periods, loan_rates, locked, resets_around
 from custom_components.euribor_rates.rates import Rate
 
 from .conftest import NEWEST_DATE, euribor_entry
@@ -120,29 +120,48 @@ def test_a_reset_before_any_rate_locks_nothing() -> None:
 def test_until_the_reset_s_rate_is_out_the_loan_keeps_the_previous_one() -> None:
     rates = [Rate("2025-12-18", 2.100), *RATES[:1]]
 
-    pending = loan_rates(rates, date(2026, 12, 18), 12, date(2026, 12, 18))
+    pending = loan_rates(rates, date(2025, 12, 18), 12, date(2026, 12, 18))
 
     assert pending.pending
     assert pending.reset == date(2025, 12, 18)
     assert pending.reference == Rate("2025-12-18", 2.100)
     assert pending.next_reset == date(2027, 12, 18)
     assert pending.newest == Rate("2026-12-17", 2.410)
-    assert pending.previous_reset == date(2024, 12, 18), "the reset before the one the rate is still locked by"
-    assert pending.previous is None, "the file has no rate that far back"
 
-    locked_now = loan_rates([*rates, RATES[1]], date(2026, 12, 18), 12, date(2026, 12, 19))
+    locked_now = loan_rates([*rates, RATES[1]], date(2025, 12, 18), 12, date(2026, 12, 19))
 
     assert not locked_now.pending
     assert locked_now.reset == date(2026, 12, 18)
     assert locked_now.reference == Rate("2026-12-18", 2.420)
-    assert locked_now.previous_reset == date(2025, 12, 18)
-    assert locked_now.previous == Rate("2025-12-18", 2.100)
 
 
-def loan(reset_date: str = "2026-09-14") -> ConfigSubentry:
+def test_a_loan_started_today_has_no_rate_until_the_day_s_is_out() -> None:
+    started = loan_rates(RATES[:1], date(2026, 12, 18), 12, date(2026, 12, 18))
+
+    assert started.pending
+    assert started.reference is None, "a reset before the start would be someone else's loan"
+    assert started.reset == date(2026, 12, 18)
+
+
+def test_the_lock_periods_run_from_the_start_with_the_rate_each_reset_locked() -> None:
+    rates = [Rate("2026-09-18", 2.300), Rate("2026-10-16", 2.350), Rate("2026-11-18", 2.380), *RATES]
+
+    periods = loan_periods(rates, date(2026, 9, 18), 1, date(2026, 12, 21))
+
+    assert periods == [
+        LockPeriod(date(2026, 9, 18), date(2026, 10, 18), Rate("2026-09-18", 2.300)),
+        LockPeriod(date(2026, 10, 18), date(2026, 11, 18), Rate("2026-10-16", 2.350)),  # a Sunday, so Friday's rate
+        LockPeriod(date(2026, 11, 18), date(2026, 12, 18), Rate("2026-11-18", 2.380)),
+        LockPeriod(date(2026, 12, 18), date(2027, 1, 18), Rate("2026-12-18", 2.420)),
+    ]
+    waiting = loan_periods(rates[:4], date(2026, 9, 18), 1, date(2026, 12, 18))
+    assert waiting[-1].reset == date(2026, 11, 18), "the reset whose rate isn't out yet has no period"
+
+
+def loan(start_date: str = "2025-09-14") -> ConfigSubentry:
     """A 12 month home loan with a margin of 0.5."""
     return ConfigSubentry(
-        data=MappingProxyType({CONF_MATURITY: "12 months", CONF_MARGIN: 0.5, CONF_RESET_DATE: reset_date}),
+        data=MappingProxyType({CONF_MATURITY: "12 months", CONF_MARGIN: 0.5, CONF_START_DATE: start_date}),
         subentry_type=SUBENTRY_LOAN,
         title="Home loan",
         unique_id=None,
@@ -165,10 +184,7 @@ async def test_a_loan_s_sensors(
     assert rate.attributes["margin"] == 0.5
     assert rate.attributes["maturity"] == "12 months"
     assert rate.attributes["lock_days"] == 0
-    assert rate.attributes["entered_reset"] == "2026-09-14"
-    assert rate.attributes["previous_reset"] == "2025-09-14"
-    assert rate.attributes["previous_rate"] == 2.901, "the made-up file's last rate before 14 September 2025"
-    assert rate.attributes["previous_rate_date"] == "2025-01-15"
+    assert rate.attributes["start_date"] == "2025-09-14"
     assert rate.attributes["reset_date"] == "2026-09-14"
     assert rate.attributes["pending"] is False
 
@@ -196,7 +212,7 @@ async def test_a_loan_reset_today_shows_the_previous_rate_as_pending(
     euribor: AiohttpClientMocker,
 ) -> None:
     entry = euribor_entry(hass)
-    hass.config_entries.async_add_subentry(entry, loan(reset_date="2026-09-16"))
+    hass.config_entries.async_add_subentry(entry, loan(start_date="2025-09-16"))
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
@@ -205,6 +221,33 @@ async def test_a_loan_reset_today_shows_the_previous_rate_as_pending(
     assert rate.attributes["reset_date"] == "2025-09-16"
     assert rate.attributes["pending"] is True
     assert hass.states.get("sensor.home_loan_reference_rate").attributes["rate_date"] == "2025-01-15"
+
+
+async def test_a_card_asks_a_loan_s_lock_periods(
+    recorder_mock,
+    hass: HomeAssistant,
+    euribor: AiohttpClientMocker,
+    hass_ws_client,
+) -> None:
+    entry = euribor_entry(hass)
+    hass.config_entries.async_add_subentry(entry, loan())
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": "euribor_rates/loan_periods", "entity_id": "sensor.home_loan_next_reset"})
+    response = await client.receive_json()
+
+    assert response["success"]
+    assert response["result"]["periods"] == [
+        {"reset": "2025-09-14", "until": "2026-09-14", "rate_date": "2025-01-15", "rate": 2.901},
+        {"reset": "2026-09-14", "until": "2027-09-14", "rate_date": "2026-09-14", "rate": 3.322},
+    ], "from the start, the first reset locking the made-up file's last rate before it"
+
+    await client.send_json_auto_id({"type": "euribor_rates/loan_periods", "entity_id": "sensor.euribor_12_months"})
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "not_found", "a maturity's sensor isn't a loan's"
 
 
 async def test_adding_and_changing_a_loan(
@@ -219,9 +262,11 @@ async def test_adding_and_changing_a_loan(
     result = await hass.config_entries.subentries.async_init((entry.entry_id, SUBENTRY_LOAN), context={"source": SOURCE_USER})
     assert result["step_id"] == "user"
 
-    form = {CONF_NAME: "  ", CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_RESET_DATE: "2026-06-14"}
+    form = {CONF_NAME: "  ", CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_START_DATE: "2026-09-17"}
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], form)
-    assert result["errors"] == {CONF_NAME: "name_missing"}
+    assert result["errors"] == {CONF_NAME: "name_missing", CONF_START_DATE: "start_in_future"}
+
+    form = {**form, CONF_START_DATE: "2026-06-14"}
 
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], {**form, CONF_NAME: "Cabin loan"})
     await hass.async_block_till_done()
@@ -229,7 +274,7 @@ async def test_adding_and_changing_a_loan(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     [subentry] = [subentry for subentry in entry.subentries.values() if subentry.subentry_type == SUBENTRY_LOAN]
     assert subentry.title == "Cabin loan"
-    assert subentry.data == {CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_RESET_DATE: "2026-06-14", CONF_LOCK_DAYS: 0}
+    assert subentry.data == {CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_START_DATE: "2026-06-14", CONF_LOCK_DAYS: 0}
     assert hass.states.get("sensor.cabin_loan").state == "3.413", "the 3 months' rate of 14 September and the margin"
     assert hass.states.get("sensor.cabin_loan_next_reset").state == "2026-12-14"
 

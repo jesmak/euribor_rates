@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { addMonths, availableRanges, changes, lockedOn, lockPeriods, points, steps } from "../src/series";
+import { addMonths, availableRanges, changes, periodsFrom, points, steps } from "../src/series";
 import type { Point } from "../src/series";
-
-// Made-up rates around a Friday 18 December, a Christmas Friday 25 December and New Year's Day, with no rates on the
-// weekends or holidays, as in the real statistics. The same days as the integration's own tests.
-const RATES: Point[] = [
-    { day: "2026-12-17", value: 2.41 },
-    { day: "2026-12-18", value: 2.42 },
-    { day: "2026-12-21", value: 2.43 },
-    { day: "2026-12-24", value: 2.44 },
-    { day: "2026-12-28", value: 2.45 },
-];
 
 describe("days", () => {
     it("are the statistics rows' days in Home Assistant's time zone", () => {
@@ -75,106 +65,18 @@ describe("changes", () => {
     });
 });
 
-describe("a reset's locked rate", () => {
-    // The same cases as test_loans.py's for the integration's locked(), which this has to agree with.
-    const cases: [string, Point[], string, number, Point | undefined][] = [
-        ["the reset day's own once published", RATES, "2026-12-18", 0, RATES[1]],
-        ["not before the day's rate is out", RATES.slice(0, 1), "2026-12-18", 0, undefined],
-        ["a Saturday's is Friday's as soon as it is out", RATES.slice(0, 2), "2026-12-19", 0, RATES[1]],
-        ["a Sunday's is Friday's as soon as it is out", RATES.slice(0, 2), "2026-12-20", 0, RATES[1]],
-        ["a weekend's waits for Friday's", RATES.slice(0, 1), "2026-12-20", 0, undefined],
-        ["a holiday's waits for a later day", RATES.slice(0, 4), "2026-12-25", 0, undefined],
-        ["a holiday's is the day before once a later day is in", RATES, "2026-12-25", 0, RATES[3]],
-        ["a weekend's after a Friday holiday waits for Monday", RATES.slice(0, 4), "2026-12-26", 0, undefined],
-        ["a weekend's after a Friday holiday is Thursday's", RATES, "2026-12-26", 0, RATES[3]],
-        ["two lock days count only days with a rate", RATES, "2026-12-22", 2, RATES[1]],
-        ["two lock days skip the weekend", RATES, "2026-12-21", 2, RATES[0]],
-        ["a lock day skips Christmas Friday", RATES, "2026-12-28", 1, RATES[3]],
-        ["a lock day before Monday is Friday's", RATES.slice(0, 2), "2026-12-21", 1, RATES[1]],
-        ["a lock day before Monday waits for Friday's", RATES.slice(0, 1), "2026-12-21", 1, undefined],
-        ["a lock day before Tuesday waits for Monday's", RATES.slice(0, 2), "2026-12-22", 1, undefined],
-        ["a lock before the first rate is nothing", RATES, "2026-12-18", 2, undefined],
-        ["a reset before any rate is nothing", RATES, "1998-06-01", 0, undefined],
-        ["no rates are nothing", [], "2026-12-18", 0, undefined],
-    ];
-
-    it.each(cases)("%s", (_name, series, reset, lockDays, expected) => {
-        expect(lockedOn(series, reset, lockDays)).toEqual(expected);
-    });
-});
-
 describe("lock periods", () => {
-    const year: Point[] = [
-        { day: "2025-10-03", value: 2.224 },
-        { day: "2026-03-13", value: 2.522 },
-        { day: "2026-10-05", value: 3.186 },
-        { day: "2026-11-19", value: 3.343 },
-    ];
-
-    it("run from each reset to the next, counted from the reset day entered", () => {
-        // A loan reset on a Sunday 5 October 2025 locked Friday's rate. The day entered may be any reset, even a future one.
-        for (const entered of ["2025-10-05", "2027-10-05", "2020-10-05"]) {
-            expect(lockPeriods(year, entered, 12, 0, "2025-09-22", "2026-11-22")).toEqual([
-                { reset: "2025-10-05", until: "2026-10-05", locked: year[0] },
-                { reset: "2026-10-05", until: "2027-10-05", locked: year[2] },
-            ]);
-        }
-        expect(lockPeriods(year, "2025-10-05", 12, 0, "2026-01-01", "2026-11-22")).toHaveLength(2);
-    });
-
-    it("leave out a reset before the statistics begin", () => {
-        expect(lockPeriods(year.slice(1), "2025-10-05", 12, 0, "2025-09-22", "2026-11-22")).toEqual([
-            { reset: "2026-10-05", until: "2027-10-05", locked: year[2] },
-        ]);
-    });
-
-    it("take a reset before the statistics from the integration, when it gives that reset's rate", () => {
-        // The statistics begin after the reset of 5 October 2025, which the loan's sensor says locked 2.224.
-        const known = { reset: "2025-10-05", locked: year[0] };
-        expect(lockPeriods(year.slice(1), "2025-10-05", 12, 0, "2025-11-22", "2026-11-22", known)).toEqual([
-            { reset: "2025-10-05", until: "2026-10-05", locked: year[0] },
-            { reset: "2026-10-05", until: "2027-10-05", locked: year[2] },
-        ]);
-        // A rate given for another reset is left alone.
-        const other = { ...known, reset: "2024-10-05" };
-        expect(lockPeriods(year.slice(1), "2025-10-05", 12, 0, "2025-11-22", "2026-11-22", other)).toHaveLength(1);
-    });
-
-    it("leave out a reset whose rate isn't out yet", () => {
-        const waiting = year.slice(0, 2);
-        expect(lockPeriods(waiting, "2025-10-05", 12, 0, "2025-09-22", "2026-10-05")).toEqual([
-            { reset: "2025-10-05", until: "2026-10-05", locked: year[0] },
-        ]);
-    });
-
-    it("include a weekend reset as soon as Friday's rate is out, as the integration does", () => {
-        // Saturday 19 December locks Friday 18 December's rate, which is the newest in the statistics.
-        expect(lockPeriods(RATES.slice(0, 2), "2026-12-19", 12, 0, "2026-12-01", "2026-12-19")).toEqual([
-            { reset: "2026-12-19", until: "2027-12-19", locked: RATES[1] },
-        ]);
-    });
-
-    it("include a reset locked a day before on the reset day itself", () => {
-        // With one lock day, Tuesday 22 December locks Monday's rate, which is out on Tuesday.
-        expect(lockPeriods(RATES.slice(0, 3), "2026-12-22", 1, 1, "2026-12-01", "2026-12-22")).toEqual([
-            { reset: "2026-12-22", until: "2027-01-22", locked: RATES[2] },
-        ]);
-    });
-
-    it("return to the 31st after a shorter month", () => {
-        const rates: Point[] = [
-            { day: "2026-01-30", value: 2.1 },
-            { day: "2026-02-27", value: 2.2 },
-            { day: "2026-03-31", value: 2.3 },
-            { day: "2026-04-01", value: 2.4 },
-        ];
-        const periods = lockPeriods(rates, "2026-01-31", 1, 0, "2026-01-15", "2026-04-01");
-        expect(periods.map(({ reset, until }) => [reset, until])).toEqual([
-            ["2026-01-31", "2026-02-28"],
-            ["2026-02-28", "2026-03-31"],
-            ["2026-03-31", "2026-04-30"],
-        ]);
-        expect(periods.map(({ locked }) => locked.value)).toEqual([2.1, 2.2, 2.3]);
+    it("are the integration's answer, with anything malformed left out", () => {
+        const answer = {
+            periods: [
+                { reset: "2025-10-05", until: "2026-10-05", rate_date: "2025-10-03", rate: 2.224 },
+                { reset: "2026-10-05", until: "2027-10-05", rate_date: "2026-10-05", rate: "3.186" },
+                { reset: "2026-10-05", until: "2027-10-05", rate_date: null, rate: 3.186 },
+            ],
+        };
+        expect(periodsFrom(answer)).toEqual([{ reset: "2025-10-05", until: "2026-10-05", locked: { day: "2025-10-03", value: 2.224 } }]);
+        expect(periodsFrom(undefined)).toEqual([]);
+        expect(periodsFrom({ periods: "none" })).toEqual([]);
     });
 });
 

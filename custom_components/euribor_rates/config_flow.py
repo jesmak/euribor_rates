@@ -24,6 +24,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
     TextSelector,
 )
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_DAYS,
@@ -31,7 +32,7 @@ from .const import (
     CONF_MARGIN,
     CONF_MATURITY,
     CONF_NAME,
-    CONF_RESET_DATE,
+    CONF_START_DATE,
     DEFAULT_DAYS,
     DOMAIN,
     ECB_UNIQUE_ID,
@@ -161,7 +162,7 @@ LOAN_SCHEMA = vol.Schema(
         vol.Required(CONF_MARGIN): NumberSelector(
             NumberSelectorConfig(min=0, max=20, step=0.001, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
         ),
-        vol.Required(CONF_RESET_DATE): DateSelector(),
+        vol.Required(CONF_START_DATE): DateSelector(),
         vol.Required(CONF_LOCK_DAYS, default=0): NumberSelector(
             NumberSelectorConfig(min=0, max=MAX_LOCK_DAYS, step=1, mode=NumberSelectorMode.BOX)
         ),
@@ -169,12 +170,22 @@ LOAN_SCHEMA = vol.Schema(
 )
 
 
+def loan_errors(title: str, data: dict[str, Any]) -> dict[str, str]:
+    """What is wrong in the loan's form, by field."""
+    errors = {}
+    if not title:
+        errors[CONF_NAME] = "name_missing"
+    if data[CONF_START_DATE] > dt_util.now().date().isoformat():
+        errors[CONF_START_DATE] = "start_in_future"
+    return errors
+
+
 def loan_data(user_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """The loan's title and data from the form."""
     return user_input[CONF_NAME].strip(), {
         CONF_MATURITY: user_input[CONF_MATURITY],
         CONF_MARGIN: float(user_input[CONF_MARGIN]),
-        CONF_RESET_DATE: user_input[CONF_RESET_DATE],
+        CONF_START_DATE: user_input[CONF_START_DATE],
         CONF_LOCK_DAYS: int(user_input[CONF_LOCK_DAYS]),
     }
 
@@ -186,9 +197,8 @@ class LoanSubentryFlow(ConfigSubentryFlow):
         errors = {}
         if user_input is not None:
             title, data = loan_data(user_input)
-            if title:
+            if not (errors := loan_errors(title, data)):
                 return self.async_create_entry(title=title, data=data)
-            errors[CONF_NAME] = "name_missing"
 
         return self.async_show_form(step_id="user", data_schema=self.add_suggested_values_to_schema(LOAN_SCHEMA, user_input), errors=errors)
 
@@ -197,9 +207,8 @@ class LoanSubentryFlow(ConfigSubentryFlow):
         errors = {}
         if user_input is not None:
             title, data = loan_data(user_input)
-            if title:
+            if not (errors := loan_errors(title, data)):
                 return self.async_update_and_abort(self._get_entry(), subentry, title=title, data=data)
-            errors[CONF_NAME] = "name_missing"
 
         suggested = user_input or {CONF_NAME: subentry.title, **subentry.data}
         return self.async_show_form(

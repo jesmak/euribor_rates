@@ -67,14 +67,14 @@
             "name": "Nimi",
             "maturity": "Viitekorko",
             "margin": "Marginaali",
-            "reset_date": "Tarkistuspäivä",
+            "start_date": "Lainan alkupäivä",
             "lock_days": "Koron lukitus ennen tarkistuspäivää"
           },
           "data_description": {
             "name": "Lainalle luodaan tämänniminen laite. Sen sensorit näyttävät lainan koron, euriborin johon se on sidottu, koron uusimmalla euriborilla ja seuraavan tarkistuspäivän.",
             "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
             "margin": "Pankin marginaali, joka lisätään euriboriin.",
-            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva.",
+            "start_date": "Päivä, jona laina nostettiin. Korko tarkistetaan sen mukaan, ja kaavio näyttää lainan korot siitä alkaen.",
             "lock_days": "Montako pankkipäivää ennen tarkistuspäivää pankki lukitsee euriborin, lainan ehtojen mukaan. 0 käyttää tarkistuspäivän arvoa suoraan."
           }
         },
@@ -85,20 +85,21 @@
             "name": "Nimi",
             "maturity": "Viitekorko",
             "margin": "Marginaali",
-            "reset_date": "Tarkistuspäivä",
+            "start_date": "Lainan alkupäivä",
             "lock_days": "Koron lukitus ennen tarkistuspäivää"
           },
           "data_description": {
             "name": "Lainan laitteen nimi.",
             "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
             "margin": "Pankin marginaali, joka lisätään euriboriin.",
-            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva.",
+            "start_date": "Päivä, jona laina nostettiin. Korko tarkistetaan sen mukaan, ja kaavio näyttää lainan korot siitä alkaen.",
             "lock_days": "Montako pankkipäivää ennen tarkistuspäivää pankki lukitsee euriborin, lainan ehtojen mukaan. 0 käyttää tarkistuspäivän arvoa suoraan."
           }
         }
       },
       "error": {
-        "name_missing": "Anna lainalle nimi."
+        "name_missing": "Anna lainalle nimi.",
+        "start_in_future": "Alkupäivä ei voi olla tulevaisuudessa."
       },
       "abort": {
         "reconfigure_successful": "Tallennettu."

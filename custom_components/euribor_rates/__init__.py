@@ -20,6 +20,7 @@ from .card import async_add_card_resource, async_remove_card_resource, async_ser
 from .const import DOMAIN, SUBENTRY_ECB, SUBENTRY_LOAN, SUBENTRY_MATURITY
 from .coordinator import EcbCoordinator, EuriborConfigEntry, EuriborCoordinator, EuriborRuntimeData, LoanCoordinator
 from .migration import VERSION, async_migrate_to_subentries, async_remove_empty_devices
+from .websocket import async_register_commands
 
 PLATFORMS = [Platform.SENSOR]
 
@@ -31,6 +32,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # with a maturity inside it before Home Assistant tries to load them.
     await async_migrate_to_subentries(hass)
     await async_serve_card(hass)
+    async_register_commands(hass)
     return True
 
 

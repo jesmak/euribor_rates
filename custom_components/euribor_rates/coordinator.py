@@ -18,7 +18,7 @@ from .const import (
     CONF_LOCK_DAYS,
     CONF_MARGIN,
     CONF_MATURITY,
-    CONF_RESET_DATE,
+    CONF_START_DATE,
     DEFAULT_DAYS,
     DOMAIN,
     ECB_UNIQUE_ID,
@@ -27,7 +27,7 @@ from .const import (
 )
 from .ecb import DepositRates, EcbClient
 from .exceptions import EuriborError
-from .loans import MONTHS_BY_MATURITY, LoanRates, loan_rates
+from .loans import MONTHS_BY_MATURITY, LoanRates, LockPeriod, loan_periods, loan_rates
 from .rates import Rate, latest
 from .statistics import store
 
@@ -155,9 +155,11 @@ class LoanCoordinator(DataUpdateCoordinator[LoanRates]):
         self.subentry = subentry
         self.maturity: str = subentry.data[CONF_MATURITY]
         self.margin = float(subentry.data[CONF_MARGIN])
-        self.reset_day = date.fromisoformat(subentry.data[CONF_RESET_DATE])
+        self.start = date.fromisoformat(subentry.data[CONF_START_DATE])
         self.lock_days = int(subentry.data.get(CONF_LOCK_DAYS, 0))
         self._client = client
+        # The maturity's rates from the latest read, for the lock periods a card asks for.
+        self.rates: list[Rate] = []
 
     async def _async_update_data(self) -> LoanRates:
         try:
@@ -165,5 +167,11 @@ class LoanCoordinator(DataUpdateCoordinator[LoanRates]):
         except EuriborError as err:
             raise UpdateFailed(str(err)) from err
 
-        rates = file.rates[SERIES_BY_MATURITY[self.maturity]]
-        return loan_rates(rates, self.reset_day, MONTHS_BY_MATURITY[self.maturity], dt_util.now().date(), self.lock_days)
+        self.rates = file.rates[SERIES_BY_MATURITY[self.maturity]]
+        return loan_rates(self.rates, self.start, MONTHS_BY_MATURITY[self.maturity], dt_util.now().date(), self.lock_days)
+
+    async def async_periods(self) -> list[LockPeriod]:
+        """Every lock period since the loan's start, worked out in the executor as a loan can be decades long."""
+        return await self.hass.async_add_executor_job(
+            loan_periods, self.rates, self.start, MONTHS_BY_MATURITY[self.maturity], dt_util.now().date(), self.lock_days
+        )

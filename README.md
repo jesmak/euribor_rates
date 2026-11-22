@@ -19,7 +19,7 @@ rate, another for when that rate was published, and a third that keeps its histo
 The rates of earlier days are kept in Home Assistant's own long term statistics, so years of Euribor can be drawn with
 any card that reads statistics, and the numbers survive a restart and the recorder's purging.
 
-A loan tied to Euribor can be added too. Give it the maturity it follows, the bank's margin and one of its reset days,
+A loan tied to Euribor can be added too. Give it the maturity it follows, the bank's margin and the day it started,
 and it gets sensors for its interest rate, the Euribor that rate is locked to, the rate it would have at the newest
 Euribor, how much that would change it and the day it is next reset. No helpers or automations are needed to keep them
 up to date.
@@ -67,13 +67,13 @@ any of its settings. A loan doesn't need its maturity to be followed as well.
 | Name                         | string | The name of the loan's device, which its sensors' names start with             |             |
 | Reference rate               | enum   | `1 month`, `3 months`, `6 months` or `12 months`                               | `12 months` |
 | Margin                       | number | The bank's margin, in percent, added to Euribor                                |             |
-| Reset day                    | date   | Any day the loan's rate is reset, past or future, to count the others from     |             |
+| Loan start date              | date   | The day the loan was drawn down, which its resets are counted from             |             |
 | Rate locked before the reset | number | How many banking days before the reset day the bank locks the Euribor, 0 to 10 | 0           |
 
 The rate is reset once per maturity, so a 12 month loan once a year, a 6 month one twice and a 3 month one four times.
-Each reset falls on the same day of the month as the reset day given, or on the month's last day when the month is
-shorter. A loan reset on 31 January is reset on 28 February and then on 31 March again, when it follows the 1 month
-Euribor.
+The first reset is on the start date, and each one after it falls on the same day of the month, or on the month's last
+day when the month is shorter. A loan started on 31 January is reset on 28 February and then on 31 March again, when it
+follows the 1 month Euribor. The start date can't be in the future.
 
 By default each reset locks the Euribor of the reset day. A reset on a Saturday or a Sunday locks Friday's rate, as
 Euribor has none on weekends, and one on a holiday locks the last rate before it. A rate is published on the next
@@ -128,11 +128,9 @@ Each loan has a device of its own, named as the loan, with five sensors. For a l
 | `sensor.home_loan_change_at_the_newest_euribor` | The newest Euribor less the locked one                      |
 | `sensor.home_loan_next_reset`                   | The day the rate is next reset, as a date                   |
 
-The interest rate sensor carries `margin`, `maturity`, `lock_days`, `entered_reset`, `reset_date`, `pending`,
-`previous_reset`, `previous_rate` and `previous_rate_date` as attributes, and the reference rate sensor `rate_date`,
-`reset_date` and `pending`. `entered_reset` is the reset day given in the settings, `reset_date` the reset that locked
-the rate and `rate_date` the day of the Euribor it locked. The `previous_` attributes are the same for the reset before,
-so a chart can show it even when the history doesn't reach back that far.
+The interest rate sensor carries `margin`, `maturity`, `start_date`, `lock_days`, `reset_date` and `pending` as
+attributes, and the reference rate sensor `rate_date`, `reset_date` and `pending`. `reset_date` is the reset that locked
+the rate and `rate_date` the day of the Euribor it locked.
 `pending` is true while a newer reset's rate isn't out yet, and the rates are still the previous reset's. The rate at
 the newest Euribor carries that Euribor's day as `latest_date`. Like the maturities' sensors, their names and the IDs
 of new sensors follow Home Assistant's language.
@@ -203,7 +201,9 @@ The card changes its layout by the number of loans that follow the maturity.
 - **Three or more:** the newest rate and its changes, the chart, then a table of the loans with their rates now and at
   the next reset.
 
-Each loan has a colour, the same in its tile or row and on the chart. Where loans show, a rise is red and a fall green,
+Each loan has a colour, the same in its tile or row and on the chart. The Euribor each of its resets locked is drawn
+from the loan's start date on, worked out by the integration from Banco de España's whole history, so it reaches back
+further than the maturity's own line when that line's history is shorter. Where loans show, a rise is red and a fall green,
 as a borrower sees them. A loan whose reset day's rate isn't out yet says so in place of its change.
 
 The chart shows a month, one, two, three or five years, or the whole history. Only the ranges the history reaches show
@@ -327,6 +327,7 @@ npm run check
 | `coordinator.py`               | Fetching and storing, every hour                           |
 | `sensor.py`                    | The maturities', the loans' and the ECB's sensors          |
 | `card.py`                      | Serving the card and keeping its dashboard resource        |
+| `websocket.py`                 | The command the card asks a loan's lock periods with       |
 | `translations/<language>.json` | Home Assistant UI texts                                    |
 | `frontend/src/`                | The card                                                   |
 

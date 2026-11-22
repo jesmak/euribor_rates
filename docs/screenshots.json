@@ -393,8 +393,8 @@
                 "state_class": "measurement",
                 "margin": 0.55,
                 "maturity": "12 months",
+                "start_date": "2024-08-27",
                 "lock_days": 0,
-                "entered_reset": "2026-08-27",
                 "reset_date": "2026-08-27",
                 "pending": false
             }
@@ -439,8 +439,8 @@
                 "state_class": "measurement",
                 "margin": 0.75,
                 "maturity": "12 months",
+                "start_date": "2024-10-05",
                 "lock_days": 0,
-                "entered_reset": "2025-10-05",
                 "reset_date": "2026-10-05",
                 "pending": false
             }
@@ -485,8 +485,8 @@
                 "state_class": "measurement",
                 "margin": 1.2,
                 "maturity": "6 months",
+                "start_date": "2024-11-15",
                 "lock_days": 0,
-                "entered_reset": "2025-11-15",
                 "reset_date": "2026-11-15",
                 "pending": false
             }
@@ -531,8 +531,8 @@
                 "state_class": "measurement",
                 "margin": 0.9,
                 "maturity": "6 months",
+                "start_date": "2025-01-20",
                 "lock_days": 0,
-                "entered_reset": "2026-01-20",
                 "reset_date": "2027-01-20",
                 "pending": false
             }
@@ -577,8 +577,8 @@
                 "state_class": "measurement",
                 "margin": 1.45,
                 "maturity": "6 months",
+                "start_date": "2024-12-01",
                 "lock_days": 0,
-                "entered_reset": "2025-12-01",
                 "reset_date": "2026-12-01",
                 "pending": false
             }
@@ -623,8 +623,8 @@
                 "state_class": "measurement",
                 "margin": 0.4,
                 "maturity": "1 month",
+                "start_date": "2025-11-10",
                 "lock_days": 0,
-                "entered_reset": "2026-11-10",
                 "reset_date": "2027-02-10",
                 "pending": true
             }
@@ -17512,6 +17512,286 @@
                 ]
             ]
         }
+    },
+    "commands": {
+        "euribor_rates/loan_periods": [
+            {
+                "with": {
+                    "entity_id": "sensor.home_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2024-08-27",
+                            "until": "2025-08-27",
+                            "rate_date": "2024-08-27",
+                            "rate": 3.638
+                        },
+                        {
+                            "reset": "2025-08-27",
+                            "until": "2026-08-27",
+                            "rate_date": "2025-08-27",
+                            "rate": 2.267
+                        },
+                        {
+                            "reset": "2026-08-27",
+                            "until": "2027-08-27",
+                            "rate_date": "2026-08-27",
+                            "rate": 2.567
+                        }
+                    ]
+                }
+            },
+            {
+                "with": {
+                    "entity_id": "sensor.summer_cottage_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2024-10-05",
+                            "until": "2025-10-05",
+                            "rate_date": "2024-10-04",
+                            "rate": 3.468
+                        },
+                        {
+                            "reset": "2025-10-05",
+                            "until": "2026-10-05",
+                            "rate_date": "2025-10-03",
+                            "rate": 2.216
+                        },
+                        {
+                            "reset": "2026-10-05",
+                            "until": "2027-10-05",
+                            "rate_date": "2026-10-05",
+                            "rate": 2.631
+                        }
+                    ]
+                }
+            },
+            {
+                "with": {
+                    "entity_id": "sensor.car_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2024-11-15",
+                            "until": "2025-05-15",
+                            "rate_date": "2024-11-15",
+                            "rate": 3.344
+                        },
+                        {
+                            "reset": "2025-05-15",
+                            "until": "2025-11-15",
+                            "rate_date": "2025-05-15",
+                            "rate": 2.408
+                        },
+                        {
+                            "reset": "2025-11-15",
+                            "until": "2026-05-15",
+                            "rate_date": "2025-11-14",
+                            "rate": 2.24
+                        },
+                        {
+                            "reset": "2026-05-15",
+                            "until": "2026-11-15",
+                            "rate_date": "2026-05-15",
+                            "rate": 2.318
+                        },
+                        {
+                            "reset": "2026-11-15",
+                            "until": "2027-05-15",
+                            "rate_date": "2026-11-13",
+                            "rate": 2.671
+                        }
+                    ]
+                }
+            },
+            {
+                "with": {
+                    "entity_id": "sensor.renovation_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2025-01-20",
+                            "until": "2025-07-20",
+                            "rate_date": "2025-01-20",
+                            "rate": 3.092
+                        },
+                        {
+                            "reset": "2025-07-20",
+                            "until": "2026-01-20",
+                            "rate_date": "2025-07-18",
+                            "rate": 2.192
+                        },
+                        {
+                            "reset": "2026-01-20",
+                            "until": "2026-07-20",
+                            "rate_date": "2026-01-20",
+                            "rate": 2.235
+                        },
+                        {
+                            "reset": "2026-07-20",
+                            "until": "2027-01-20",
+                            "rate_date": "2026-07-20",
+                            "rate": 2.535
+                        },
+                        {
+                            "reset": "2027-01-20",
+                            "until": "2027-07-20",
+                            "rate_date": "2027-01-20",
+                            "rate": 2.858
+                        }
+                    ]
+                }
+            },
+            {
+                "with": {
+                    "entity_id": "sensor.boat_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2024-12-01",
+                            "until": "2025-06-01",
+                            "rate_date": "2024-11-29",
+                            "rate": 3.283
+                        },
+                        {
+                            "reset": "2025-06-01",
+                            "until": "2025-12-01",
+                            "rate_date": "2025-05-30",
+                            "rate": 2.292
+                        },
+                        {
+                            "reset": "2025-12-01",
+                            "until": "2026-06-01",
+                            "rate_date": "2025-12-01",
+                            "rate": 2.241
+                        },
+                        {
+                            "reset": "2026-06-01",
+                            "until": "2026-12-01",
+                            "rate_date": "2026-06-01",
+                            "rate": 2.362
+                        },
+                        {
+                            "reset": "2026-12-01",
+                            "until": "2027-06-01",
+                            "rate_date": "2026-12-01",
+                            "rate": 2.744
+                        }
+                    ]
+                }
+            },
+            {
+                "with": {
+                    "entity_id": "sensor.student_loan"
+                },
+                "result": {
+                    "periods": [
+                        {
+                            "reset": "2025-11-10",
+                            "until": "2025-12-10",
+                            "rate_date": "2025-11-10",
+                            "rate": 2.107
+                        },
+                        {
+                            "reset": "2025-12-10",
+                            "until": "2026-01-10",
+                            "rate_date": "2025-12-10",
+                            "rate": 2.035
+                        },
+                        {
+                            "reset": "2026-01-10",
+                            "until": "2026-02-10",
+                            "rate_date": "2026-01-09",
+                            "rate": 2.004
+                        },
+                        {
+                            "reset": "2026-02-10",
+                            "until": "2026-03-10",
+                            "rate_date": "2026-02-10",
+                            "rate": 1.958
+                        },
+                        {
+                            "reset": "2026-03-10",
+                            "until": "2026-04-10",
+                            "rate_date": "2026-03-10",
+                            "rate": 1.989
+                        },
+                        {
+                            "reset": "2026-04-10",
+                            "until": "2026-05-10",
+                            "rate_date": "2026-04-10",
+                            "rate": 2.058
+                        },
+                        {
+                            "reset": "2026-05-10",
+                            "until": "2026-06-10",
+                            "rate_date": "2026-05-08",
+                            "rate": 2.074
+                        },
+                        {
+                            "reset": "2026-06-10",
+                            "until": "2026-07-10",
+                            "rate_date": "2026-06-10",
+                            "rate": 2.175
+                        },
+                        {
+                            "reset": "2026-07-10",
+                            "until": "2026-08-10",
+                            "rate_date": "2026-07-10",
+                            "rate": 2.297
+                        },
+                        {
+                            "reset": "2026-08-10",
+                            "until": "2026-09-10",
+                            "rate_date": "2026-08-10",
+                            "rate": 2.286
+                        },
+                        {
+                            "reset": "2026-09-10",
+                            "until": "2026-10-10",
+                            "rate_date": "2026-09-10",
+                            "rate": 2.413
+                        },
+                        {
+                            "reset": "2026-10-10",
+                            "until": "2026-11-10",
+                            "rate_date": "2026-10-09",
+                            "rate": 2.54
+                        },
+                        {
+                            "reset": "2026-11-10",
+                            "until": "2026-12-10",
+                            "rate_date": "2026-11-10",
+                            "rate": 2.537
+                        },
+                        {
+                            "reset": "2026-12-10",
+                            "until": "2027-01-10",
+                            "rate_date": "2026-12-10",
+                            "rate": 2.517
+                        },
+                        {
+                            "reset": "2027-01-10",
+                            "until": "2027-02-10",
+                            "rate_date": "2027-01-08",
+                            "rate": 2.531
+                        },
+                        {
+                            "reset": "2027-02-10",
+                            "until": "2027-03-10",
+                            "rate_date": "2027-02-10",
+                            "rate": 2.806
+                        }
+                    ]
+                }
+            }
+        ]
     },
     "shots": [
         {
