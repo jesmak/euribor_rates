@@ -49,23 +49,30 @@ def resets_around(reset_day: date, months: int, today: date) -> tuple[date, date
     return before, latest_reset, next_reset
 
 
-def locked(rates: list[Rate], reset: date) -> Rate | None:
+def locked(rates: list[Rate], reset: date, lock_days: int = 0) -> Rate | None:
     """The rate a reset locks, or None while it can't be known yet.
 
     Each rate is published on the next working day. Euribor has no rates on weekends, so a reset on a Saturday or a
     Sunday locks Friday's rate as soon as that is out. A holiday's reset locks the day before it, which shows only
     once a later day's rate is in.
+
+    A bank that locks the rate lock_days working days before the reset takes the rate that many days with a rate
+    before the reset day, as Euribor has a rate on every TARGET working day and on no other.
     """
-    last_working_day = reset - timedelta(days=max(0, reset.weekday() - 4))
+    last_day = reset - timedelta(days=1 if lock_days else 0)
+    last_working_day = last_day - timedelta(days=max(0, last_day.weekday() - 4))
     if not rates or rates[-1].date < last_working_day.isoformat():
         return None
     day = reset.isoformat()
-    return next((rate for rate in reversed(rates) if rate.date <= day), None)
+    if not lock_days:
+        return next((rate for rate in reversed(rates) if rate.date <= day), None)
+    before = (rate for rate in reversed(rates) if rate.date < day)
+    return next((rate for count, rate in enumerate(before, 1) if count == lock_days), None)
 
 
-def loan_rates(rates: list[Rate], reset_day: date, months: int, today: date) -> LoanRates:
+def loan_rates(rates: list[Rate], reset_day: date, months: int, today: date, lock_days: int = 0) -> LoanRates:
     before, latest_reset, next_reset = resets_around(reset_day, months, today)
-    reference = locked(rates, latest_reset)
+    reference = locked(rates, latest_reset, lock_days)
     if reference is not None:
         return LoanRates(reference, latest_reset, False, next_reset, latest(rates))
-    return LoanRates(locked(rates, before), before, True, next_reset, latest(rates))
+    return LoanRates(locked(rates, before, lock_days), before, True, next_reset, latest(rates))

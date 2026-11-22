@@ -1,0 +1,6 @@
+{
+    "tabWidth": 4,
+    "printWidth": 140,
+    "trailingComma": "all",
+    "overrides": [{ "files": ["*.md", "*.yml", "*.yaml"], "options": { "tabWidth": 2 } }]
+}

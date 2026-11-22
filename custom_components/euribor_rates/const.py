@@ -20,6 +20,11 @@ SERIES_BY_MATURITY: Final[dict[str, str]] = {
 }
 MATURITIES: Final = list(SERIES_BY_MATURITY)
 
+ECB_ATTRIBUTION: Final = "Data provided by the European Central Bank"
+# The ECB's deposit facility rate, every day since 1999.
+ECB_URL: Final = "https://data-api.ecb.europa.eu/service/data/FM/D.U2.EUR.4F.KR.DFR.LEV?format=csvdata&detail=dataonly"
+ECB_UNIQUE_ID: Final = "ecb_deposit_facility"
+
 # Config entry data. The keys are those of earlier versions, so existing entries keep working.
 CONF_MATURITY: Final = "maturity"
 CONF_DAYS: Final = "days"
@@ -33,10 +38,14 @@ MAX_DAYS: Final = 10950
 CONF_NAME: Final = "name"
 CONF_MARGIN: Final = "margin"
 CONF_RESET_DATE: Final = "reset_date"
+# How many working days before the reset day the rate is locked. Loans added before it lock the reset day's.
+CONF_LOCK_DAYS: Final = "lock_days"
+MAX_LOCK_DAYS: Final = 10
 
-# Every maturity being followed, and every loan, is a subentry of the one Euribor entry.
+# Every maturity being followed, every loan and the ECB's rate is a subentry of the one Euribor entry.
 SUBENTRY_MATURITY: Final = "maturity"
 SUBENTRY_LOAN: Final = "loan"
+SUBENTRY_ECB: Final = "ecb"
 TITLE: Final = "Euribor"
 
 # The file gets the previous working day's rates once a day, at about ten in the morning Madrid time.
@@ -50,3 +59,6 @@ ATTR_MARGIN: Final = "margin"
 ATTR_PENDING: Final = "pending"
 ATTR_RATE_DATE: Final = "rate_date"
 ATTR_RESET_DATE: Final = "reset_date"
+ATTR_EFFECTIVE_DATE: Final = "effective_date"
+ATTR_LOCK_DAYS: Final = "lock_days"
+ATTR_ENTERED_RESET: Final = "entered_reset"

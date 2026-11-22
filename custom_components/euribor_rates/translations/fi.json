@@ -67,13 +67,15 @@
             "name": "Nimi",
             "maturity": "Viitekorko",
             "margin": "Marginaali",
-            "reset_date": "Tarkistuspäivä"
+            "reset_date": "Tarkistuspäivä",
+            "lock_days": "Koron lukitus ennen tarkistuspäivää"
           },
           "data_description": {
             "name": "Lainalle luodaan tämänniminen laite. Sen sensorit näyttävät lainan koron, euriborin johon se on sidottu, koron uusimmalla euriborilla ja seuraavan tarkistuspäivän.",
             "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
             "margin": "Pankin marginaali, joka lisätään euriboriin.",
-            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva."
+            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva.",
+            "lock_days": "Montako pankkipäivää ennen tarkistuspäivää pankki lukitsee euriborin, lainan ehtojen mukaan. 0 käyttää tarkistuspäivän arvoa suoraan."
           }
         },
         "reconfigure": {
@@ -83,13 +85,15 @@
             "name": "Nimi",
             "maturity": "Viitekorko",
             "margin": "Marginaali",
-            "reset_date": "Tarkistuspäivä"
+            "reset_date": "Tarkistuspäivä",
+            "lock_days": "Koron lukitus ennen tarkistuspäivää"
           },
           "data_description": {
             "name": "Lainan laitteen nimi.",
             "maturity": "Euribor, jota laina seuraa. 12 kuukauden lainan korko tarkistetaan kerran vuodessa, 3 kuukauden neljä kertaa vuodessa, jne.",
             "margin": "Pankin marginaali, joka lisätään euriboriin.",
-            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva."
+            "reset_date": "Mikä tahansa koron tarkistuspäivä, mennyt tai tuleva.",
+            "lock_days": "Montako pankkipäivää ennen tarkistuspäivää pankki lukitsee euriborin, lainan ehtojen mukaan. 0 käyttää tarkistuspäivän arvoa suoraan."
           }
         }
       },
@@ -97,6 +101,38 @@
         "name_missing": "Anna lainalle nimi."
       },
       "abort": {
+        "reconfigure_successful": "Tallennettu."
+      }
+    },
+    "ecb": {
+      "initiate_flow": {
+        "user": "Lisää EKP:n korko"
+      },
+      "entry_type": "EKP:n korko",
+      "step": {
+        "user": {
+          "title": "EKP:n talletuskorko",
+          "description": "Euroopan keskuspankin talletuskorko ja kuinka kaukaa sen historia luetaan.",
+          "data": {
+            "days": "Tuotava historia päivinä"
+          },
+          "data_description": {
+            "days": "Kuinka kauas historia ulottuu, päivinä."
+          }
+        },
+        "reconfigure": {
+          "title": "EKP:n talletuskorko",
+          "description": "Kuinka kaukaa EKP:n talletuskoron historia luetaan.",
+          "data": {
+            "days": "Tuotava historia päivinä"
+          },
+          "data_description": {
+            "days": "Kuinka kauas historia ulottuu, päivinä."
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "EKP:n korkoa seurataan jo.",
         "reconfigure_successful": "Tallennettu."
       }
     }
@@ -111,6 +147,9 @@
       },
       "reference_rate": {
         "name": "Viitekorko"
+      },
+      "change": {
+        "name": "Muutos uusimmalla euriborilla"
       },
       "rate_today": {
         "name": "Korko uusimmalla euriborilla"
@@ -135,6 +174,9 @@
     },
     "maturity_12_months": {
       "name": "Euribor 12 kuukautta"
+    },
+    "ecb_deposit_facility": {
+      "name": "EKP:n talletuskorko"
     }
   }
 }

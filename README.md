@@ -148,7 +148,7 @@ series:
     statistics:
       type: mean
       period: day
-    unit: '%'
+    unit: "%"
     stroke_width: 1
     float_precision: 3
     show:
@@ -184,14 +184,14 @@ apex_config:
       - x: 1788210000000 # a timestamp in milliseconds
         label:
           style:
-            color: '#000'
+            color: "#000"
           text: Loan review
 series:
   - entity: sensor.euribor_12_months_history
     statistics:
       type: mean
       period: day
-    unit: '%'
+    unit: "%"
     stroke_width: 2
     float_precision: 3
     name: Rate of the day

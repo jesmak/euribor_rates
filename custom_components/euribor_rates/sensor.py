@@ -1,4 +1,4 @@
-"""The sensors of one maturity (its newest rate, the day that rate is from, and its history) and of one loan."""
+"""The sensors of one maturity (its newest rate, the day that rate is from, and its history), of the ECB's rate and of one loan."""
 
 from __future__ import annotations
 
@@ -15,8 +15,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_EFFECTIVE_DATE,
+    ATTR_ENTERED_RESET,
     ATTR_LATEST_DATE,
     ATTR_LATEST_RATE,
+    ATTR_LOCK_DAYS,
     ATTR_MARGIN,
     ATTR_MATURITY,
     ATTR_PENDING,
@@ -24,8 +27,9 @@ from .const import (
     ATTR_RESET_DATE,
     ATTRIBUTION,
     DOMAIN,
+    ECB_ATTRIBUTION,
 )
-from .coordinator import EuriborConfigEntry, EuriborCoordinator, LoanCoordinator
+from .coordinator import EcbCoordinator, EuriborConfigEntry, EuriborCoordinator, LoanCoordinator
 from .rates import Rate
 
 
@@ -39,9 +43,11 @@ async def async_setup_entry(
             [EuriborRateSensor(coordinator), EuriborPublishedSensor(coordinator), EuriborHistorySensor(coordinator)],
             config_subentry_id=subentry_id,
         )
+    for subentry_id, ecb in entry.runtime_data.ecb.items():
+        async_add_entities([EcbRateSensor(ecb), EcbHistorySensor(ecb)], config_subentry_id=subentry_id)
     for subentry_id, loan in entry.runtime_data.loans.items():
         async_add_entities(
-            [LoanRateSensor(loan), LoanReferenceSensor(loan), LoanRateTodaySensor(loan), LoanNextResetSensor(loan)],
+            [LoanRateSensor(loan), LoanReferenceSensor(loan), LoanRateTodaySensor(loan), LoanChangeSensor(loan), LoanNextResetSensor(loan)],
             config_subentry_id=subentry_id,
         )
 
@@ -161,6 +167,60 @@ class EuriborHistorySensor(EuriborSensor):
         return date.fromisoformat(newest.date) if newest else None
 
 
+class EcbSensor(CoordinatorEntity[EcbCoordinator], SensorEntity):
+    """What the sensors of the ECB's rate share."""
+
+    _attr_attribution = ECB_ATTRIBUTION
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: EcbCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.subentry.subentry_id)},
+            translation_key="ecb_deposit_facility",
+            manufacturer="European Central Bank",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+
+class EcbRateSensor(EcbSensor):
+    """The deposit facility rate in effect today, and the day it took effect."""
+
+    _attr_name = None
+    _attr_icon = "mdi:bank-outline"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: EcbCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = coordinator.rate_unique_id
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.rates[-1].rate if self.coordinator.data else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_EFFECTIVE_DATE: self.coordinator.data.effective if self.coordinator.data else None}
+
+
+class EcbHistorySensor(EcbSensor):
+    """Every day's rate, kept in this sensor's statistics as a maturity's history is."""
+
+    _attr_translation_key = "history"
+    _attr_icon = "mdi:chart-line"
+    _attr_device_class = SensorDeviceClass.DATE
+
+    def __init__(self, coordinator: EcbCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = coordinator.history_unique_id
+
+    @property
+    def native_value(self) -> date | None:
+        return date.fromisoformat(self.coordinator.data.rates[-1].date) if self.coordinator.data else None
+
+
 class LoanSensor(CoordinatorEntity[LoanCoordinator], SensorEntity):
     """What the sensors of a loan share: a device named after the loan."""
 
@@ -209,7 +269,15 @@ class LoanRateSensor(LoanPercentSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {ATTR_MARGIN: self.coordinator.margin, **self.lock()}
+        # The maturity, the lock days and the reset day as entered let a card find the loans of a maturity and count
+        # their resets as the integration does, from the day entered, so that a 31st returns after a shorter month.
+        return {
+            ATTR_MARGIN: self.coordinator.margin,
+            ATTR_MATURITY: self.coordinator.maturity,
+            ATTR_LOCK_DAYS: self.coordinator.lock_days,
+            ATTR_ENTERED_RESET: self.coordinator.reset_day.isoformat(),
+            **self.lock(),
+        }
 
 
 class LoanReferenceSensor(LoanPercentSensor):
@@ -245,6 +313,21 @@ class LoanRateTodaySensor(LoanPercentSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         newest = self.coordinator.data.newest if self.coordinator.data else None
         return {ATTR_LATEST_DATE: newest.date if newest else None}
+
+
+class LoanChangeSensor(LoanPercentSensor):
+    """How much the loan's rate would change if it were reset to the newest Euribor, in percentage points."""
+
+    key = "change"
+    _attr_translation_key = "change"
+    _attr_icon = "mdi:swap-vertical"
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if not data or not data.reference or not data.newest:
+            return None
+        return round(data.newest.rate - data.reference.rate, 6)
 
 
 class LoanNextResetSensor(LoanSensor):

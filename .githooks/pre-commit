@@ -1,0 +1,23 @@
+#!/bin/sh
+# Refuses a commit whose built card in custom_components/<domain>/www/ isn't what the staged frontend/ builds to, which
+# CI would otherwise find only after the push. It builds a copy of the index, so changes left unstaged count neither way.
+# Enabled once per clone: git config core.hooksPath .githooks
+git diff --cached --quiet -- frontend/src frontend/scripts frontend/package.json frontend/package-lock.json frontend/tsconfig.json \
+    'custom_components/*/manifest.json' 'custom_components/*/www' && exit 0
+[ -d frontend/node_modules ] || { echo "pre-commit: dependencies not installed, run: cd frontend && npm ci"; exit 1; }
+# node_modules is copied, not linked: a symlink would put its absolute path into the bundle's comments, and the build
+# would never match. Inside .git it is usually on the same disk, so the copy can be hard links.
+tmp=$(mktemp -d "$(git rev-parse --absolute-git-dir)/card-check.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+git checkout-index --all --prefix="$tmp/"
+cp -al frontend/node_modules "$tmp/frontend/node_modules" 2>/dev/null ||
+    { rm -rf "$tmp/frontend/node_modules" && cp -R frontend/node_modules "$tmp/frontend/node_modules"; }
+(cd "$tmp/frontend" && node scripts/build.mjs >/dev/null 2>&1) ||
+    { echo "pre-commit: the staged frontend/ doesn't build, run: cd frontend && npm run build"; exit 1; }
+failed=0
+for built in "$tmp"/custom_components/*/www/*; do
+    name=${built#"$tmp"/}
+    git show ":$name" 2>/dev/null | cmp -s - "$built" ||
+        { echo "pre-commit: $name isn't what the staged frontend/ builds to, run npm run build in frontend/ and commit it"; failed=1; }
+done
+exit $failed

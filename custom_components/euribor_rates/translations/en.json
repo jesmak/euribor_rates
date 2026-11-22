@@ -67,13 +67,15 @@
             "name": "Name",
             "maturity": "Reference rate",
             "margin": "Margin",
-            "reset_date": "Reset day"
+            "reset_date": "Reset day",
+            "lock_days": "Rate locked before the reset"
           },
           "data_description": {
             "name": "The loan gets a device of this name, with sensors for its rate, the Euribor it is locked to, the rate at the newest Euribor and the next reset.",
             "maturity": "The Euribor the loan follows. A 12 month loan is reset once a year, a 3 month one four times a year, and so on.",
             "margin": "The bank's margin, added to Euribor.",
-            "reset_date": "Any day the rate is reset, past or future."
+            "reset_date": "Any day the rate is reset, past or future.",
+            "lock_days": "How many banking days before the reset day the bank locks the Euribor, as the loan's terms say. 0 uses the reset day's own rate."
           }
         },
         "reconfigure": {
@@ -83,13 +85,15 @@
             "name": "Name",
             "maturity": "Reference rate",
             "margin": "Margin",
-            "reset_date": "Reset day"
+            "reset_date": "Reset day",
+            "lock_days": "Rate locked before the reset"
           },
           "data_description": {
             "name": "The loan's device is named this.",
             "maturity": "The Euribor the loan follows. A 12 month loan is reset once a year, a 3 month one four times a year, and so on.",
             "margin": "The bank's margin, added to Euribor.",
-            "reset_date": "Any day the rate is reset, past or future."
+            "reset_date": "Any day the rate is reset, past or future.",
+            "lock_days": "How many banking days before the reset day the bank locks the Euribor, as the loan's terms say. 0 uses the reset day's own rate."
           }
         }
       },
@@ -97,6 +101,38 @@
         "name_missing": "Give the loan a name."
       },
       "abort": {
+        "reconfigure_successful": "Saved."
+      }
+    },
+    "ecb": {
+      "initiate_flow": {
+        "user": "Add ECB rate"
+      },
+      "entry_type": "ECB rate",
+      "step": {
+        "user": {
+          "title": "ECB deposit facility rate",
+          "description": "The European Central Bank's deposit facility rate, and how far back to read its history.",
+          "data": {
+            "days": "History to import, in days"
+          },
+          "data_description": {
+            "days": "How far back the history reaches, in days."
+          }
+        },
+        "reconfigure": {
+          "title": "ECB deposit facility rate",
+          "description": "How far back to read the history of the ECB's deposit facility rate.",
+          "data": {
+            "days": "History to import, in days"
+          },
+          "data_description": {
+            "days": "How far back the history reaches, in days."
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "The ECB's rate is already being followed.",
         "reconfigure_successful": "Saved."
       }
     }
@@ -114,6 +150,9 @@
       },
       "rate_today": {
         "name": "Rate at the newest Euribor"
+      },
+      "change": {
+        "name": "Change at the newest Euribor"
       },
       "next_reset": {
         "name": "Next reset"
@@ -135,6 +174,9 @@
     },
     "maturity_12_months": {
       "name": "Euribor 12 months"
+    },
+    "ecb_deposit_facility": {
+      "name": "ECB deposit facility rate"
     }
   }
 }

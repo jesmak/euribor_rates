@@ -1,0 +1,4 @@
+# Only the README is formatted at the repo's root. The integration's JSON is written in Home Assistant's style, and
+# frontend/ has its own Prettier config and ignore file.
+/*
+!/README.md

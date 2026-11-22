@@ -1,0 +1,49 @@
+{
+    "common": {
+        "name": "Euribor",
+        "description": "Euriborin korkojakso historioineen, EKP:n talletuskorko ja sitä seuraavat lainat."
+    },
+    "card": {
+        "published": "{date} noteeraus, julkaistu {published}",
+        "stale": "Julkaistu {days} pv sitten",
+        "month": "1 kk",
+        "year": "1 v",
+        "projection": "jos euribor pysyy",
+        "ecb_legend": "EKP:n talletuskorko",
+        "ecb_short": "EKP",
+        "locked_legend": "lukittu euribor",
+        "next": "seuraava",
+        "pending_long": "odottaa tarkistuspäivän noteerausta",
+        "pending_short": "odottaa noteerausta",
+        "pending_tiny": "odottaa",
+        "days": "{days} pv",
+        "now": "nyt",
+        "at_reset": "tarkistuksessa",
+        "locked_line": "Euribor {rate} + {margin}",
+        "no_entity": "Valitse euriborin korkojakso kortin asetuksista.",
+        "unavailable": "Korot eivät ole saatavilla.",
+        "range": "Aikaväli"
+    },
+    "ranges": {
+        "1m": "1 kk",
+        "1y": "1 v",
+        "2y": "2 v",
+        "3y": "3 v",
+        "5y": "5 v",
+        "all": "Kaikki"
+    },
+    "editor": {
+        "entity": "Korkojakso",
+        "loans_on_chart": "Lainat kaaviossa",
+        "loans_on_chart_helper": "Euribor, jonka kukin tarkistus lukitsi, merkkinä tai viivana seuraavaan tarkistukseen.",
+        "projection": "Ennuste",
+        "projection_helper": "Tämän päivän euribor jatkettuna tulevaan.",
+        "ecb": "EKP:n korko",
+        "ecb_helper": "Näkyy, kun EKP:n korko on lisätty integraatioon.",
+        "markers": "Merkit",
+        "lines": "Lukitusjaksot viivoina",
+        "steps": "Portaina",
+        "axis_markers": "Merkit akselilla",
+        "none": "Ei mitään"
+    }
+}

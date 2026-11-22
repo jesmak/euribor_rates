@@ -1,0 +1,49 @@
+{
+    "common": {
+        "name": "Euribor",
+        "description": "A Euribor maturity with its history, the ECB's deposit facility rate and the loans that follow it."
+    },
+    "card": {
+        "published": "{date} rate, published {published}",
+        "stale": "Published {days} days ago",
+        "month": "1 mo",
+        "year": "1 y",
+        "projection": "if Euribor stays",
+        "ecb_legend": "ECB deposit rate",
+        "ecb_short": "ECB",
+        "locked_legend": "locked Euribor",
+        "next": "next",
+        "pending_long": "waiting for the reset day's rate",
+        "pending_short": "waiting for the rate",
+        "pending_tiny": "waiting",
+        "days": "{days} d",
+        "now": "now",
+        "at_reset": "at reset",
+        "locked_line": "Euribor {rate} + {margin}",
+        "no_entity": "Choose a Euribor maturity in the card's settings.",
+        "unavailable": "The rates aren't available.",
+        "range": "Range"
+    },
+    "ranges": {
+        "1m": "1 mo",
+        "1y": "1 y",
+        "2y": "2 y",
+        "3y": "3 y",
+        "5y": "5 y",
+        "all": "All"
+    },
+    "editor": {
+        "entity": "Maturity",
+        "loans_on_chart": "Loans on the chart",
+        "loans_on_chart_helper": "The Euribor each reset locked, as a marker or as a line to the next reset.",
+        "projection": "Projection",
+        "projection_helper": "Today's Euribor drawn on into the future.",
+        "ecb": "ECB rate",
+        "ecb_helper": "Shown once the ECB's rate is added to the integration.",
+        "markers": "Markers",
+        "lines": "Lock periods as lines",
+        "steps": "Steps",
+        "axis_markers": "Markers on the axis",
+        "none": "None"
+    }
+}

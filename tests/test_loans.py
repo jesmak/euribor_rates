@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.euribor_rates.const import (
+    CONF_LOCK_DAYS,
     CONF_MARGIN,
     CONF_MATURITY,
     CONF_NAME,
@@ -95,6 +96,22 @@ def test_a_weekend_reset_after_a_friday_holiday_waits_for_monday_s_rate() -> Non
     assert locked(RATES, date(2026, 12, 26)) == Rate("2026-12-24", 2.440)
 
 
+def test_a_lock_days_before_the_reset_counts_only_days_with_a_rate() -> None:
+    assert locked(RATES, date(2026, 12, 22), 2) == Rate("2026-12-18", 2.420), "Monday 21 and Friday 18 are the two days before"
+    assert locked(RATES, date(2026, 12, 21), 2) == Rate("2026-12-17", 2.410), "the weekend is skipped"
+    assert locked(RATES, date(2026, 12, 28), 1) == Rate("2026-12-24", 2.440), "Christmas Friday had no rate"
+
+
+def test_a_lock_days_before_the_reset_is_known_once_the_day_before_is_out() -> None:
+    assert locked(RATES[:2], date(2026, 12, 21), 1) == Rate("2026-12-18", 2.420), "Friday is the last working day before Monday"
+    assert locked(RATES[:1], date(2026, 12, 21), 1) is None
+    assert locked(RATES[:2], date(2026, 12, 22), 1) is None, "Monday's rate isn't out yet"
+
+
+def test_a_lock_before_the_first_rate_locks_nothing() -> None:
+    assert locked(RATES, date(2026, 12, 18), 2) is None
+
+
 def test_a_reset_before_any_rate_locks_nothing() -> None:
     assert locked(RATES, date(1998, 6, 1)) is None
     assert locked([], date(2026, 12, 18)) is None
@@ -142,6 +159,9 @@ async def test_a_loan_s_sensors(
     assert rate.state == "3.822", "the 12 months' rate of Monday 14 September and the margin"
     assert rate.attributes["unit_of_measurement"] == "%"
     assert rate.attributes["margin"] == 0.5
+    assert rate.attributes["maturity"] == "12 months"
+    assert rate.attributes["lock_days"] == 0
+    assert rate.attributes["entered_reset"] == "2026-09-14"
     assert rate.attributes["reset_date"] == "2026-09-14"
     assert rate.attributes["pending"] is False
 
@@ -152,6 +172,10 @@ async def test_a_loan_s_sensors(
     today = hass.states.get("sensor.home_loan_rate_at_the_newest_euribor")
     assert today.state == "3.826"
     assert today.attributes["latest_date"] == NEWEST_DATE
+
+    change = hass.states.get("sensor.home_loan_change_at_the_newest_euribor")
+    assert change.state == "0.004", "the newest Euribor less the locked one"
+    assert change.attributes["unit_of_measurement"] == "%"
 
     assert hass.states.get("sensor.home_loan_next_reset").state == "2027-09-14"
 
@@ -198,7 +222,7 @@ async def test_adding_and_changing_a_loan(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     [subentry] = [subentry for subentry in entry.subentries.values() if subentry.subentry_type == SUBENTRY_LOAN]
     assert subentry.title == "Cabin loan"
-    assert subentry.data == {CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_RESET_DATE: "2026-06-14"}
+    assert subentry.data == {CONF_MATURITY: "3 months", CONF_MARGIN: 0.7, CONF_RESET_DATE: "2026-06-14", CONF_LOCK_DAYS: 0}
     assert hass.states.get("sensor.cabin_loan").state == "3.413", "the 3 months' rate of 14 September and the margin"
     assert hass.states.get("sensor.cabin_loan_next_reset").state == "2026-12-14"
 
@@ -215,3 +239,17 @@ async def test_adding_and_changing_a_loan(
     assert result["reason"] == "reconfigure_successful"
     assert entry.subentries[subentry.subentry_id].data[CONF_MARGIN] == 0.65
     assert hass.states.get("sensor.cabin_loan").state == "3.363", "the entry is reloaded with the new margin"
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_LOAN),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**form, CONF_NAME: "Cabin loan", CONF_MARGIN: 0.65, CONF_LOCK_DAYS: 2}
+    )
+    await hass.async_block_till_done()
+
+    assert entry.subentries[subentry.subentry_id].data[CONF_LOCK_DAYS] == 2
+    reference = hass.states.get("sensor.cabin_loan_reference_rate")
+    assert reference.attributes["rate_date"] == "2026-09-12", "two days with a rate before Monday 14 September"
+    assert reference.state == "2.711"

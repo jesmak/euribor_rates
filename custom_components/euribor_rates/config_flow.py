@@ -1,4 +1,4 @@
-"""Config flow: one Euribor entry, with a maturity or a loan added to it at a time."""
+"""Config flow: one Euribor entry, with a maturity, a loan or the ECB's rate added to it at a time."""
 
 from __future__ import annotations
 
@@ -27,15 +27,19 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_DAYS,
+    CONF_LOCK_DAYS,
     CONF_MARGIN,
     CONF_MATURITY,
     CONF_NAME,
     CONF_RESET_DATE,
     DEFAULT_DAYS,
     DOMAIN,
+    ECB_UNIQUE_ID,
     MATURITIES,
     MAX_DAYS,
+    MAX_LOCK_DAYS,
     MIN_DAYS,
+    SUBENTRY_ECB,
     SUBENTRY_LOAN,
     SUBENTRY_MATURITY,
     TITLE,
@@ -88,7 +92,7 @@ class EuriborConfigFlow(ConfigFlow, domain=DOMAIN):
     @classmethod
     @callback
     def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
-        return {SUBENTRY_MATURITY: MaturitySubentryFlow, SUBENTRY_LOAN: LoanSubentryFlow}
+        return {SUBENTRY_MATURITY: MaturitySubentryFlow, SUBENTRY_LOAN: LoanSubentryFlow, SUBENTRY_ECB: EcbSubentryFlow}
 
 
 class MaturitySubentryFlow(ConfigSubentryFlow):
@@ -125,6 +129,29 @@ class MaturitySubentryFlow(ConfigSubentryFlow):
         )
 
 
+ECB_SCHEMA = vol.Schema({vol.Required(CONF_DAYS, default=DEFAULT_DAYS): DAYS_SELECTOR})
+
+
+class EcbSubentryFlow(ConfigSubentryFlow):
+    """Following the ECB's deposit facility rate, or changing how far back its history reaches."""
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        entry = self._get_entry()
+        if any(subentry.subentry_type == SUBENTRY_ECB for subentry in entry.subentries.values()):
+            return self.async_abort(reason="already_configured")
+        if user_input is None:
+            return self.async_show_form(step_id="user", data_schema=ECB_SCHEMA)
+        return self.async_create_entry(title="ECB", data={CONF_DAYS: int(user_input[CONF_DAYS])}, unique_id=ECB_UNIQUE_ID)
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure", data_schema=self.add_suggested_values_to_schema(ECB_SCHEMA, dict(subentry.data))
+            )
+        return self.async_update_and_abort(self._get_entry(), subentry, data={CONF_DAYS: int(user_input[CONF_DAYS])})
+
+
 LOAN_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): TextSelector(),
@@ -135,6 +162,9 @@ LOAN_SCHEMA = vol.Schema(
             NumberSelectorConfig(min=0, max=20, step=0.001, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
         ),
         vol.Required(CONF_RESET_DATE): DateSelector(),
+        vol.Required(CONF_LOCK_DAYS, default=0): NumberSelector(
+            NumberSelectorConfig(min=0, max=MAX_LOCK_DAYS, step=1, mode=NumberSelectorMode.BOX)
+        ),
     }
 )
 
@@ -145,6 +175,7 @@ def loan_data(user_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         CONF_MATURITY: user_input[CONF_MATURITY],
         CONF_MARGIN: float(user_input[CONF_MARGIN]),
         CONF_RESET_DATE: user_input[CONF_RESET_DATE],
+        CONF_LOCK_DAYS: int(user_input[CONF_LOCK_DAYS]),
     }
 
 

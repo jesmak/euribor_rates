@@ -41,4 +41,17 @@ then turn it off again and paste the lines of the integration from the log that 
 
 ```
 
+**If the problem is in the card, the browser and its version:**
+
+**And the card's errors from the browser's console (if any):**
+
+<!--
+Open the browser's developer tools (F12 in most browsers), reload the page and copy the errors in the console that
+mention the card.
+-->
+
+```
+
+```
+
 **Additional information:**
