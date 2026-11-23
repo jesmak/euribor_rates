@@ -301,7 +301,21 @@ export class EuriborCard extends LitElement {
             return nothing;
         }
         return html`<div class="legend">
-            ${locked ? html`<span><i class="swatch lock-swatch"></i>${this.text("card.locked_legend")}</span>` : nothing}
+            ${
+                locked
+                    ? html`<span
+                          ><span class="lock-swatches ${found.loans.length > 2 ? "many" : ""}"
+                              >${found.loans.map(
+                                  (_, index) =>
+                                      html`<i
+                                          class="swatch lock-swatch"
+                                          style="background: ${LOAN_COLORS[index % LOAN_COLORS.length]}"
+                                      ></i>`,
+                              )}</span
+                          >${this.text("card.locked_legend")}</span
+                      >`
+                    : nothing
+            }
             ${ecb ? html`<span><i class="swatch ecb-swatch"></i>${this.text("card.ecb_legend")}</span>` : nothing}
         </div>`;
     }
@@ -743,6 +757,7 @@ export class EuriborCard extends LitElement {
         }
         .legend {
             display: flex;
+            justify-content: center;
             gap: 12px;
             margin-top: 4px;
             flex: none;
@@ -758,12 +773,24 @@ export class EuriborCard extends LitElement {
             vertical-align: middle;
             margin-right: 4px;
         }
+        /* A dash in each loan's colour, as the loans' lines are drawn in theirs, shorter when there are more than two. */
+        .lock-swatches {
+            display: inline-flex;
+            gap: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
         .lock-swatch {
             height: 3px;
-            background: var(--secondary-text-color);
+            margin-right: 0;
         }
+        .lock-swatches.many .lock-swatch {
+            width: 6px;
+        }
+        /* Dashed like the ECB's line, 4 on and 3 off, ending on a dash. */
         .ecb-swatch {
-            background: var(--euribor-card-ecb);
+            width: 11px;
+            background: repeating-linear-gradient(to right, var(--euribor-card-ecb) 0 4px, transparent 4px 7px);
         }
         .dot {
             display: inline-block;
