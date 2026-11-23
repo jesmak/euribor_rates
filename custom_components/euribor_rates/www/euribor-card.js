@@ -688,6 +688,7 @@ function steps(series) {
 
 // src/chart.ts
 var PAD = { left: 36, right: 8, top: 16, bottom: 16 };
+var ECB_LABEL_DAYS = 2 * 366;
 function scale(input) {
   const start = moment(input.start);
   const end = moment(input.today);
@@ -791,12 +792,13 @@ function ecb(input, s4, bottom) {
     return null;
   }
   const changes2 = steps(input.ecb).filter((change) => moment(change.day) >= s4.start);
+  const labels = (s4.end - s4.start) / DAY <= ECB_LABEL_DAYS;
   if (input.ecbMode === "markers") {
     return w`${changes2.map((change) => {
       const x2 = s4.x(moment(change.day));
       return w`<line class="ecb-mark" x1=${x2} x2=${x2} y1=${PAD.top} y2=${bottom}></line>
                 <path class="ecb" d="M${x2 - 4},${bottom} L${x2 + 4},${bottom} L${x2},${bottom - 6} Z"></path>
-                <text class="ecb-label" x=${x2 + 5} y=${bottom - 2}>${signed(input, change.to - change.from)}</text>`;
+                ${labels ? w`<text class="ecb-label" x=${x2 + 5} y=${bottom - 2}>${signed(input, change.to - change.from)}</text>` : null}`;
     })}`;
   }
   const before = input.ecb.filter((point) => moment(point.day) <= s4.start).at(-1) ?? input.ecb[0];
@@ -809,7 +811,7 @@ function ecb(input, s4, bottom) {
   }
   path += ` L${s4.x(s4.end)},${s4.y(level)}`;
   return w`<path class="ecb-step" d=${path}></path>
-        ${changes2.map(
+        ${(labels ? changes2 : []).map(
     (change) => w`<text class="ecb-label" x=${s4.x(moment(change.day)) + 3} y=${s4.y(change.to) - 4}>${signed(input, change.to - change.from)}</text>`
   )}`;
 }

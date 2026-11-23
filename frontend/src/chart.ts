@@ -33,6 +33,8 @@ export interface ChartInput {
 }
 
 const PAD = { left: 36, right: 8, top: 16, bottom: 16 };
+// Over more than two years the ECB's changes come a few pixels apart and their labels pile up, so only the steps show.
+const ECB_LABEL_DAYS = 2 * 366;
 export interface Scale {
     start: number;
     end: number;
@@ -159,12 +161,13 @@ function ecb(input: ChartInput, s: Scale, bottom: number): SVGTemplateResult | n
         return null;
     }
     const changes = steps(input.ecb).filter((change) => moment(change.day) >= s.start);
+    const labels = (s.end - s.start) / DAY <= ECB_LABEL_DAYS;
     if (input.ecbMode === "markers") {
         return svg`${changes.map((change) => {
             const x = s.x(moment(change.day));
             return svg`<line class="ecb-mark" x1=${x} x2=${x} y1=${PAD.top} y2=${bottom}></line>
                 <path class="ecb" d="M${x - 4},${bottom} L${x + 4},${bottom} L${x},${bottom - 6} Z"></path>
-                <text class="ecb-label" x=${x + 5} y=${bottom - 2}>${signed(input, change.to - change.from)}</text>`;
+                ${labels ? svg`<text class="ecb-label" x=${x + 5} y=${bottom - 2}>${signed(input, change.to - change.from)}</text>` : null}`;
         })}`;
     }
     // A history shorter than the range starts the line where the history does.
@@ -178,7 +181,7 @@ function ecb(input: ChartInput, s: Scale, bottom: number): SVGTemplateResult | n
     }
     path += ` L${s.x(s.end)},${s.y(level)}`;
     return svg`<path class="ecb-step" d=${path}></path>
-        ${changes.map(
+        ${(labels ? changes : []).map(
             (change) =>
                 svg`<text class="ecb-label" x=${s.x(moment(change.day)) + 3} y=${s.y(change.to) - 4}>${signed(input, change.to - change.from)}</text>`,
         )}`;
