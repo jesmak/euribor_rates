@@ -35,6 +35,8 @@ describe("languages", () => {
         expect(translate("fi", "card.now")).toBe("nyt");
         expect(translate("xx", "card.now")).toBe(translate("en", "card.now"));
         expect(translate("fi-FI", "card.now")).toBe("nyt");
+        expect(translate("fi_FI", "card.now")).toBe("nyt");
+        expect(translate("xx-YY", "card.now")).toBe(translate("en", "card.now"));
         expect(translate("fi", "no.such.key")).toBe("no.such.key");
     });
 });
