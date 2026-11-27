@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /frontend
+    target-branch: dev
     schedule:
       interval: monthly
     groups:
